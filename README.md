@@ -91,6 +91,17 @@ pnpm build
 
 This runs the TypeScript build and writes the static site to `frontend/dist/`. The Go API is started with `go run .` from `backend/`.
 
+## Run backend tests
+
+From the repository root, run all Go tests in the backend module:
+
+```sh
+cd backend
+go test ./...
+```
+
+The handler tests use an in-memory fake store, so they do not require PostgreSQL or a `.env` file.
+
 ## API routes
 
 | Method | Route | Purpose |

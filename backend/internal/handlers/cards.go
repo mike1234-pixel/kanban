@@ -131,6 +131,7 @@ func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
 
 //# endregion
 
+// #region Move Card
 func (h *CardHandler) MoveCard(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		ColumnID string `json:"column_id" validate:"required,uuid"`
@@ -155,3 +156,5 @@ func (h *CardHandler) MoveCard(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+//#endregion
