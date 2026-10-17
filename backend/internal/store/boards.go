@@ -1,23 +1,24 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"kanban/internal/models"
 )
 
 // #region Save Board
-func (s *PostgresStore) SaveBoard(board models.Board) error {
+func (s *PostgresStore) SaveBoard(ctx context.Context, board models.Board) error {
 	query := `INSERT INTO boards (id, title) VALUES ($1, $2)`
-	_, err := s.db.Exec(query, board.ID, board.Title)
+	_, err := s.db.ExecContext(ctx, query, board.ID, board.Title)
 	return err
 }
 
 //#endregion
 
 // #region Get Boards
-func (s *PostgresStore) GetBoards() ([]models.Board, error) {
+func (s *PostgresStore) GetBoards(ctx context.Context) ([]models.Board, error) {
 	query := `SELECT id, title, created_at FROM boards ORDER BY created_at DESC`
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -38,11 +39,11 @@ func (s *PostgresStore) GetBoards() ([]models.Board, error) {
 //#endregion
 
 // #region Get Board By Id
-func (s *PostgresStore) GetBoardByID(id string) (models.Board, error) {
+func (s *PostgresStore) GetBoardByID(ctx context.Context, id string) (models.Board, error) {
 	// 1. Fetch Board
 	var b models.Board
 	query := `SELECT id, title, created_at FROM boards WHERE id = $1`
-	err := s.db.QueryRow(query, id).Scan(&b.ID, &b.Title, &b.CreatedAt)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&b.ID, &b.Title, &b.CreatedAt)
 	if err == sql.ErrNoRows {
 		return models.Board{}, nil
 	}
@@ -51,7 +52,7 @@ func (s *PostgresStore) GetBoardByID(id string) (models.Board, error) {
 	}
 
 	// 2. Load nested Columns with Cards
-	cols, err := s.GetColumnsWithCards(b.ID)
+	cols, err := s.GetColumnsWithCards(ctx, b.ID)
 	if err != nil {
 		return models.Board{}, err
 	}
@@ -63,9 +64,9 @@ func (s *PostgresStore) GetBoardByID(id string) (models.Board, error) {
 //#endregion
 
 // #region Update Board
-func (s *PostgresStore) UpdateBoard(board models.Board) (bool, error) {
+func (s *PostgresStore) UpdateBoard(ctx context.Context, board models.Board) (bool, error) {
 	query := `UPDATE boards SET title = $1 WHERE id = $2`
-	res, err := s.db.Exec(query, board.Title, board.ID)
+	res, err := s.db.ExecContext(ctx, query, board.Title, board.ID)
 	if err != nil {
 		return false, err
 	}
@@ -74,9 +75,9 @@ func (s *PostgresStore) UpdateBoard(board models.Board) (bool, error) {
 	return rows > 0, err
 }
 
-func (s *PostgresStore) DeleteBoard(id string) (bool, error) {
+func (s *PostgresStore) DeleteBoard(ctx context.Context, id string) (bool, error) {
 	query := `DELETE FROM boards WHERE id = $1`
-	res, err := s.db.Exec(query, id)
+	res, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return false, err
 	}

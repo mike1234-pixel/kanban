@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http/httptest"
 	"strings"
@@ -23,19 +24,19 @@ type testStore struct {
 	moveCard   func(string, string) (bool, error)
 }
 
-func (s testStore) SaveBoard(board models.Board) error {
+func (s testStore) SaveBoard(_ context.Context, board models.Board) error {
 	return s.saveBoard(board)
 }
 
-func (s testStore) GetBoardByID(id string) (models.Board, error) {
+func (s testStore) GetBoardByID(_ context.Context, id string) (models.Board, error) {
 	return s.getBoard(id)
 }
 
-func (s testStore) GetColumnsWithCards(boardID string) ([]models.Column, error) {
+func (s testStore) GetColumnsWithCards(_ context.Context, boardID string) ([]models.Column, error) {
 	return s.getColumns(boardID)
 }
 
-func (s testStore) MoveCard(id, columnID string) (bool, error) {
+func (s testStore) MoveCard(_ context.Context, id, columnID string) (bool, error) {
 	return s.moveCard(id, columnID)
 }
 

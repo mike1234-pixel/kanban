@@ -28,7 +28,7 @@ func (h *ColumnHandler) CreateColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Store.SaveColumn(col); err != nil {
+	if err := h.Store.SaveColumn(r.Context(), col); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -48,7 +48,7 @@ func (h *ColumnHandler) ListColumns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	columns, err := h.Store.GetColumnsWithCards(boardID)
+	columns, err := h.Store.GetColumnsWithCards(r.Context(), boardID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -69,7 +69,7 @@ func (h *ColumnHandler) GetColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	col, err := h.Store.GetColumnByID(id)
+	col, err := h.Store.GetColumnByID(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -95,7 +95,7 @@ func (h *ColumnHandler) UpdateColumn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. Fetch existing column from database
-	existingCol, err := h.Store.GetColumnByID(id)
+	existingCol, err := h.Store.GetColumnByID(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -126,7 +126,7 @@ func (h *ColumnHandler) UpdateColumn(w http.ResponseWriter, r *http.Request) {
 	existingCol.Position = *req.Position
 
 	// 4. Save back to database
-	_, err = h.Store.UpdateColumn(existingCol)
+	_, err = h.Store.UpdateColumn(r.Context(), existingCol)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -148,7 +148,7 @@ func (h *ColumnHandler) DeleteColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deleted, err := h.Store.DeleteColumn(id)
+	deleted, err := h.Store.DeleteColumn(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

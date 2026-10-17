@@ -7,23 +7,23 @@ import (
 	"kanban/internal/models"
 )
 
-func (s *PostgresStore) SaveCard(card models.Card) error {
+func (s *PostgresStore) SaveCard(ctx context.Context, card models.Card) error {
 
 	query := `
 		INSERT INTO cards (id, column_id, title, description, "order")
 		VALUES ($1, $2, $3, $4, $5)
 	`
-	_, err := s.db.Exec(query, card.ID, card.ColumnID, card.Title, card.Description, card.Order)
+	_, err := s.db.ExecContext(ctx, query, card.ID, card.ColumnID, card.Title, card.Description, card.Order)
 
 	return err // Go functions that perform side effects (like database writes, file updates, or HTTP requests) follow a standard convention: if the function returns (error) and that value is nil, the operation succeeded completely.
 }
 
 // #region Get Cards
-func (s *PostgresStore) GetCards() ([]models.Card, error) {
+func (s *PostgresStore) GetCards(ctx context.Context) ([]models.Card, error) {
 
 	query := `SELECT id, column_id, title, description, "order" FROM cards`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 
 	if err != nil {
 		return nil, err
@@ -53,13 +53,13 @@ func (s *PostgresStore) GetCards() ([]models.Card, error) {
 //#endregion
 
 // #region Get Card By Id
-func (s *PostgresStore) GetCardByID(id string) (models.Card, error) {
+func (s *PostgresStore) GetCardByID(ctx context.Context, id string) (models.Card, error) {
 
 	query := `SELECT id, column_id, title, description, "order" FROM cards WHERE id = $1`
 
 	var c models.Card
 
-	err := s.db.QueryRow(query, id).Scan(&c.ID, &c.ColumnID, &c.Title, &c.Description, &c.Order)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&c.ID, &c.ColumnID, &c.Title, &c.Description, &c.Order)
 
 	if err == sql.ErrNoRows { // query ran successfully, but there wasn't a card matching what I asked for.
 		return models.Card{}, nil // return empty card to signal not found
@@ -75,13 +75,13 @@ func (s *PostgresStore) GetCardByID(id string) (models.Card, error) {
 //#endregion
 
 // #region Update Card
-func (s *PostgresStore) UpdateCard(id string, updated models.Card) (bool, error) {
+func (s *PostgresStore) UpdateCard(ctx context.Context, id string, updated models.Card) (bool, error) {
 	query := `
 		UPDATE cards 
 		SET column_id = $1, title = $2, description = $3, "order" = $4
 		WHERE id = $5
 	`
-	result, err := s.db.Exec(query, updated.ColumnID, updated.Title, updated.Description, updated.Order, id)
+	result, err := s.db.ExecContext(ctx, query, updated.ColumnID, updated.Title, updated.Description, updated.Order, id)
 
 	if err != nil {
 		return false, err
@@ -97,25 +97,25 @@ func (s *PostgresStore) UpdateCard(id string, updated models.Card) (bool, error)
 }
 
 // MoveCard changes a card's column and records the move atomically.
-func (s *PostgresStore) MoveCard(id string, columnID string) (bool, error) {
-	tx, err := s.db.BeginTx(context.Background(), nil)
+func (s *PostgresStore) MoveCard(ctx context.Context, id string, columnID string) (bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return false, err
 	}
 	defer tx.Rollback()
 
 	var fromColumnID string
-	err = tx.QueryRow(`SELECT column_id FROM cards WHERE id = $1 FOR UPDATE`, id).Scan(&fromColumnID)
+	err = tx.QueryRowContext(ctx, `SELECT column_id FROM cards WHERE id = $1 FOR UPDATE`, id).Scan(&fromColumnID)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-	if _, err := tx.Exec(`UPDATE cards SET column_id = $1 WHERE id = $2`, columnID, id); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE cards SET column_id = $1 WHERE id = $2`, columnID, id); err != nil {
 		return false, err
 	}
-	if _, err := tx.Exec(`INSERT INTO card_movements (card_id, from_column_id, to_column_id) VALUES ($1, $2, $3)`, id, fromColumnID, columnID); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO card_movements (card_id, from_column_id, to_column_id) VALUES ($1, $2, $3)`, id, fromColumnID, columnID); err != nil {
 		return false, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -127,10 +127,10 @@ func (s *PostgresStore) MoveCard(id string, columnID string) (bool, error) {
 //#endregion
 
 // #region Delete Card
-func (s *PostgresStore) DeleteCard(id string) (bool, error) {
+func (s *PostgresStore) DeleteCard(ctx context.Context, id string) (bool, error) {
 	query := `DELETE FROM cards WHERE id = $1`
 
-	result, err := s.db.Exec(query, id)
+	result, err := s.db.ExecContext(ctx, query, id)
 
 	if err != nil {
 		return false, err

@@ -29,7 +29,7 @@ func (h *CardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Store.SaveCard(card); err != nil {
+	if err := h.Store.SaveCard(r.Context(), card); err != nil {
 		http.Error(w, "Failed to save card", http.StatusInternalServerError)
 		return
 	}
@@ -43,7 +43,7 @@ func (h *CardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 
 // #region List Cards
 func (h *CardHandler) ListCards(w http.ResponseWriter, r *http.Request) {
-	cards, err := h.Store.GetCards()
+	cards, err := h.Store.GetCards(r.Context())
 	if err != nil {
 		http.Error(w, "Failed to fetch cards", http.StatusInternalServerError)
 		return
@@ -59,7 +59,7 @@ func (h *CardHandler) ListCards(w http.ResponseWriter, r *http.Request) {
 func (h *CardHandler) GetCard(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	card, err := h.Store.GetCardByID(id)
+	card, err := h.Store.GetCardByID(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Failed to fetch card", http.StatusInternalServerError)
 		return
@@ -90,7 +90,7 @@ func (h *CardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	success, err := h.Store.UpdateCard(id, card)
+	success, err := h.Store.UpdateCard(r.Context(), id, card)
 	if err != nil {
 		http.Error(w, "Failed to update card", http.StatusInternalServerError)
 		return
@@ -100,7 +100,7 @@ func (h *CardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updatedCard, err := h.Store.GetCardByID(id)
+	updatedCard, err := h.Store.GetCardByID(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Failed to fetch updated card", http.StatusInternalServerError)
 		return
@@ -116,7 +116,7 @@ func (h *CardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
 func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	success, err := h.Store.DeleteCard(id)
+	success, err := h.Store.DeleteCard(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Failed to delete card", http.StatusInternalServerError)
 		return
@@ -145,7 +145,7 @@ func (h *CardHandler) MoveCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	moved, err := h.Store.MoveCard(r.PathValue("id"), request.ColumnID)
+	moved, err := h.Store.MoveCard(r.Context(), r.PathValue("id"), request.ColumnID)
 	if err != nil {
 		http.Error(w, "Failed to move card", http.StatusInternalServerError)
 		return
