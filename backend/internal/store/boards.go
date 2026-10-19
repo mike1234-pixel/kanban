@@ -4,13 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"kanban/internal/models"
+	"time"
 )
 
 // #region Save Board
-func (s *PostgresStore) SaveBoard(ctx context.Context, board models.Board) error {
-	query := `INSERT INTO boards (id, title) VALUES ($1, $2)`
-	_, err := s.db.ExecContext(ctx, query, board.ID, board.Title)
-	return err
+func (s *PostgresStore) SaveBoard(ctx context.Context, board models.Board) (time.Time, error) {
+	query := `INSERT INTO boards (id, title) VALUES ($1, $2) RETURNING created_at`
+	var createdAt time.Time
+	err := s.db.QueryRowContext(ctx, query, board.ID, board.Title).Scan(&createdAt)
+	return createdAt, err
 }
 
 //#endregion
@@ -24,7 +26,7 @@ func (s *PostgresStore) GetBoards(ctx context.Context) ([]models.Board, error) {
 	}
 	defer rows.Close()
 
-	var boards []models.Board
+	boards := []models.Board{}
 	for rows.Next() {
 		var b models.Board
 		b.Columns = []models.Column{}

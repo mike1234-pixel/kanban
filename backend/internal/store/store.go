@@ -2,8 +2,13 @@ package store
 
 import (
 	"context"
+	"errors"
 	"kanban/internal/models"
+	"time"
 )
+
+// ErrEmailTaken is returned when a user is saved with an email that already belongs to another user.
+var ErrEmailTaken = errors.New("email already in use")
 
 type Store interface {
 	//#region Card Operations
@@ -24,10 +29,18 @@ type Store interface {
 	//#endregion
 
 	//#region Board operations
-	SaveBoard(ctx context.Context, board models.Board) error
+	SaveBoard(ctx context.Context, board models.Board) (time.Time, error)
 	GetBoards(ctx context.Context) ([]models.Board, error)
 	GetBoardByID(ctx context.Context, id string) (models.Board, error)
 	UpdateBoard(ctx context.Context, board models.Board) (bool, error)
 	DeleteBoard(ctx context.Context, id string) (bool, error)
+	//#endregion
+
+	//#region User operations
+	SaveUser(ctx context.Context, user models.User) (time.Time, error)
+	GetUsers(ctx context.Context) ([]models.User, error)
+	GetUserByID(ctx context.Context, id string) (models.User, error)
+	UpdateUser(ctx context.Context, user models.User) (bool, error)
+	DeleteUser(ctx context.Context, id string) (bool, error)
 	//#endregion
 }

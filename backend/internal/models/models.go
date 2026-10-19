@@ -34,3 +34,13 @@ type Card struct {
 }
 
 //#endregion
+
+// #region User
+type User struct {
+	ID        string    `json:"id" validate:"required,uuid"`
+	Name      string    `json:"name" validate:"required,min=1,max=100"`
+	Email     string    `json:"email" validate:"required,email,max=254"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+}
+
+//#endregion

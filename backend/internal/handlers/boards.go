@@ -29,10 +29,12 @@ func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Store.SaveBoard(r.Context(), board); err != nil {
+	createdAt, err := h.Store.SaveBoard(r.Context(), board)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	board.CreatedAt = createdAt
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

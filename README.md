@@ -30,7 +30,7 @@ cd backend
 docker compose up -d
 ```
 
-The API expects the `boards`, `columns`, and `cards` tables to exist. The current repository does not include database migrations. For a fresh local database, create the tables with:
+The API expects the `boards`, `columns`, `cards`, and `users` tables to exist. The current repository does not include database migrations. For a fresh local database, create the tables with:
 
 ```sql
 CREATE TABLE boards (
@@ -53,6 +53,13 @@ CREATE TABLE cards (
   title VARCHAR(150) NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   "order" INTEGER NOT NULL CHECK ("order" >= 0)
+);
+
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(254) NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
@@ -114,3 +121,5 @@ The handler tests use an in-memory fake store, so they do not require PostgreSQL
 | `GET`, `POST` | `/cards` | List or create cards |
 | `GET`, `PUT`, `DELETE` | `/cards/{id}` | Read, update, or delete a card |
 | `POST` | `/cards/{id}/move` | Move a card to another column |
+| `GET`, `POST` | `/users` | List or create users |
+| `GET`, `PUT`, `DELETE` | `/users/{id}` | Read, update, or delete a user |

@@ -64,6 +64,14 @@ func main() {
 	mux.HandleFunc("PUT /boards/{id}", boardHandler.UpdateBoard)
 	mux.HandleFunc("DELETE /boards/{id}", boardHandler.DeleteBoard)
 
+	userHandler := &handlers.UserHandler{Store: dbStore, Validate: validate}
+
+	mux.HandleFunc("POST /users", userHandler.CreateUser)
+	mux.HandleFunc("GET /users", userHandler.ListUsers)
+	mux.HandleFunc("GET /users/{id}", userHandler.GetUser)
+	mux.HandleFunc("PUT /users/{id}", userHandler.UpdateUser)
+	mux.HandleFunc("DELETE /users/{id}", userHandler.DeleteUser)
+
 	fmt.Println("Server running on http://localhost:8080")
 
 	if err := http.ListenAndServe(":8080", mux); err != nil {

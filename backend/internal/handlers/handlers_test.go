@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"kanban/internal/models"
 	"kanban/internal/store"
@@ -22,11 +24,29 @@ type testStore struct {
 	getBoard   func(string) (models.Board, error)
 	getColumns func(string) ([]models.Column, error)
 	moveCard   func(string, string) (bool, error)
+	saveUser   func(models.User) error
+	getUser    func(string) (models.User, error)
+	updateUser func(models.User) (bool, error)
 }
 
-func (s testStore) SaveBoard(_ context.Context, board models.Board) error {
-	return s.saveBoard(board)
+func (s testStore) SaveUser(_ context.Context, user models.User) (time.Time, error) {
+	return testCreatedAt, s.saveUser(user)
 }
+
+func (s testStore) GetUserByID(_ context.Context, id string) (models.User, error) {
+	return s.getUser(id)
+}
+
+func (s testStore) UpdateUser(_ context.Context, user models.User) (bool, error) {
+	return s.updateUser(user)
+}
+
+func (s testStore) SaveBoard(_ context.Context, board models.Board) (time.Time, error) {
+	return testCreatedAt, s.saveBoard(board)
+}
+
+// testCreatedAt stands in for the timestamp the database assigns on insert.
+var testCreatedAt = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 
 func (s testStore) GetBoardByID(_ context.Context, id string) (models.Board, error) {
 	return s.getBoard(id)
@@ -67,6 +87,13 @@ func TestCreateBoard(t *testing.T) {
 		}
 		if got := response.Header().Get("Content-Type"); got != "application/json" {
 			t.Errorf("Content-Type = %q, want application/json", got)
+		}
+		var created models.Board
+		if err := json.NewDecoder(response.Body).Decode(&created); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if !created.CreatedAt.Equal(testCreatedAt) {
+			t.Errorf("created_at = %v, want %v", created.CreatedAt, testCreatedAt)
 		}
 	})
 
@@ -201,6 +228,129 @@ func TestMoveCard(t *testing.T) {
 
 		if response.Code != 404 {
 			t.Fatalf("status = %d, want 404", response.Code)
+		}
+	})
+}
+
+func TestCreateUser(t *testing.T) {
+	t.Run("creates a valid user", func(t *testing.T) {
+		called := false
+		handler := UserHandler{
+			Store: testStore{saveUser: func(user models.User) error {
+				called = true
+				if user.Email != "ada@example.com" {
+					t.Fatalf("saved email = %q, want ada@example.com", user.Email)
+				}
+				return nil
+			}},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("POST", "/users", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","name":"Ada","email":"ada@example.com"}`))
+		response := httptest.NewRecorder()
+
+		handler.CreateUser(response, request)
+
+		if response.Code != 201 || !called {
+			t.Fatalf("status = %d, store called = %v; want 201 and true", response.Code, called)
+		}
+		var created models.User
+		if err := json.NewDecoder(response.Body).Decode(&created); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if !created.CreatedAt.Equal(testCreatedAt) {
+			t.Errorf("created_at = %v, want %v", created.CreatedAt, testCreatedAt)
+		}
+	})
+
+	t.Run("rejects an invalid email", func(t *testing.T) {
+		called := false
+		handler := UserHandler{
+			Store:    testStore{saveUser: func(models.User) error { called = true; return nil }},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("POST", "/users", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","name":"Ada","email":"not-an-email"}`))
+		response := httptest.NewRecorder()
+
+		handler.CreateUser(response, request)
+
+		if response.Code != 400 || called {
+			t.Fatalf("status = %d, store called = %v; want 400 and false", response.Code, called)
+		}
+	})
+
+	t.Run("returns conflict when the email is taken", func(t *testing.T) {
+		handler := UserHandler{
+			Store:    testStore{saveUser: func(models.User) error { return store.ErrEmailTaken }},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("POST", "/users", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","name":"Ada","email":"ada@example.com"}`))
+		response := httptest.NewRecorder()
+
+		handler.CreateUser(response, request)
+
+		if response.Code != 409 {
+			t.Fatalf("status = %d, want 409", response.Code)
+		}
+	})
+}
+
+func TestUpdateUser(t *testing.T) {
+	existing := func(string) (models.User, error) {
+		return models.User{ID: "user-id", Name: "Ada", Email: "ada@example.com"}, nil
+	}
+
+	t.Run("updates name and email", func(t *testing.T) {
+		handler := UserHandler{
+			Store: testStore{getUser: existing, updateUser: func(user models.User) (bool, error) {
+				if user.ID != "user-id" || user.Name != "Ada Lovelace" || user.Email != "ada@lovelace.dev" {
+					t.Fatalf("updated user = %+v, unexpected", user)
+				}
+				return true, nil
+			}},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("PUT", "/users/user-id", strings.NewReader(`{"name":"Ada Lovelace","email":"ada@lovelace.dev"}`))
+		request.SetPathValue("id", "user-id")
+		response := httptest.NewRecorder()
+
+		handler.UpdateUser(response, request)
+
+		if response.Code != 200 {
+			t.Fatalf("status = %d, want 200", response.Code)
+		}
+	})
+
+	t.Run("returns not found for a missing user", func(t *testing.T) {
+		handler := UserHandler{
+			Store:    testStore{getUser: func(string) (models.User, error) { return models.User{}, nil }},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("PUT", "/users/user-id", strings.NewReader(`{"name":"Ada","email":"ada@example.com"}`))
+		request.SetPathValue("id", "user-id")
+		response := httptest.NewRecorder()
+
+		handler.UpdateUser(response, request)
+
+		if response.Code != 404 {
+			t.Fatalf("status = %d, want 404", response.Code)
+		}
+	})
+
+	t.Run("returns conflict when the email is taken", func(t *testing.T) {
+		handler := UserHandler{
+			Store: testStore{getUser: existing, updateUser: func(models.User) (bool, error) {
+				return false, store.ErrEmailTaken
+			}},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("PUT", "/users/user-id", strings.NewReader(`{"name":"Ada","email":"taken@example.com"}`))
+		request.SetPathValue("id", "user-id")
+		response := httptest.NewRecorder()
+
+		handler.UpdateUser(response, request)
+
+		if response.Code != 409 {
+			t.Fatalf("status = %d, want 409", response.Code)
 		}
 	})
 }
