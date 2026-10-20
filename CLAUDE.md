@@ -102,6 +102,16 @@ Work through these in order. Don't add several at once.
 11. **Docker + deployment**
 12. **Production architecture**
 
+## Learning log
+
+`LEARNING.md` is a quick reference for the roadmap concepts I've learned. Keep it up to date:
+
+- When I've learned a concept (you've checked my understanding), add an entry for it.
+- Group entries under a heading per roadmap step (e.g. `## 2. HTTP Fundamentals`), using the concept names from the roadmap.
+- It's a quick reference, not a tutorial: each entry is at most 300 words (aim much shorter), mostly a one-line definition plus a few key bullet points.
+- List concepts from the current step that I haven't learned yet under "Not yet covered", and remove them from that list as they get entries.
+- If the code changes in a way that makes an entry wrong, update the entry.
+
 ## Current milestone
 
 <!-- Update this as you progress -->
