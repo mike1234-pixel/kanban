@@ -75,6 +75,23 @@ A header that tells the client how to read the body: `application/json`, `text/p
 - If you don't set it, Go guesses, and JSON comes out as `text/plain`.
 - `http.Error` always sends `text/plain`, so it can't send JSON errors.
 
+### Request lifecycle
+
+What happens between a client connecting and the response arriving.
+
+```
+TCP handshake → (TLS handshake) → accept → goroutine → parse → mux → handler → response
+```
+
+- **TCP handshake** (SYN → SYN-ACK → ACK) opens a reliable connection.
+- **TLS handshake** runs on top of TCP, for HTTPS only: encryption plus server identity. This project uses plain HTTP (`ListenAndServe`), so local traffic is unencrypted. `localhost` traffic never leaves the machine, though.
+- **One goroutine per connection.** The server accepts connections in a loop; a slow client doesn't block others.
+- **Parse:** raw bytes become an `*http.Request`. `r.Body` is a stream, read later by the handler.
+- **Route:** the mux matches method and path, then calls your handler with `(w, r)`.
+- **Respond:** the handler writes to `w`; when it returns, the response is finished and `r.Context()` is cancelled.
+- **Keep-alive:** the connection usually stays open for the client's next request.
+- Handlers run concurrently, so shared state must be safe for concurrent use. `*sql.DB` is.
+
 ### `context.Context`
 
 Carries a cancellation signal (plus deadlines and request values) down a call chain.
@@ -82,7 +99,3 @@ Carries a cancellation signal (plus deadlines and request values) down a call ch
 - `r.Context()` is cancelled when the client disconnects or the handler returns.
 - Pass it to the database (`QueryContext`, `ExecContext`, `BeginTx`) so abandoned queries stop and free their connection.
 - Conventions: first parameter, named `ctx`; never stored in a struct; use `context.Background()` when there's no request.
-
-### Not yet covered
-
-- Request lifecycle

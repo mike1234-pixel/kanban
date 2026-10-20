@@ -28,6 +28,8 @@ Optimise for my understanding, not for speed or completeness.
 
 - Stay within the current milestone. If something belongs to a later milestone, say so rather than building it now.
 
+- Before moving onto the next topic, check my understanding with a question about the concept.
+
 ## Technical constraints
 
 - Standard library first: `net/http`, `database/sql`, `encoding/json`, `context`, `log/slog`.
