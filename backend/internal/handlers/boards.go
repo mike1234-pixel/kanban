@@ -20,25 +20,23 @@ func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) {
 	var board models.Board
 
 	if err := json.NewDecoder(r.Body).Decode(&board); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeInvalidJSON, "Invalid JSON payload")
 		return
 	}
 
 	if err := h.Validate.Struct(board); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
 
 	createdAt, err := h.Store.SaveBoard(r.Context(), board)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	board.CreatedAt = createdAt
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(board)
+	writeJSON(w, http.StatusCreated, board)
 }
 
 // #endregion
@@ -47,12 +45,11 @@ func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) {
 func (h *BoardHandler) ListBoards(w http.ResponseWriter, r *http.Request) {
 	boards, err := h.Store.GetBoards(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(boards)
+	writeJSON(w, http.StatusOK, boards)
 }
 
 // #endregion
@@ -63,17 +60,16 @@ func (h *BoardHandler) GetBoard(w http.ResponseWriter, r *http.Request) {
 
 	board, err := h.Store.GetBoardByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
 	if board.ID == "" {
-		http.Error(w, "Board not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeBoardNotFound, "Board not found")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(board)
+	writeJSON(w, http.StatusOK, board)
 }
 
 // #endregion
@@ -82,17 +78,17 @@ func (h *BoardHandler) GetBoard(w http.ResponseWriter, r *http.Request) {
 func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Board ID is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeBoardIDRequired, "Board ID is required")
 		return
 	}
 
 	existingBoard, err := h.Store.GetBoardByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if existingBoard.ID == "" {
-		http.Error(w, "Board not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeBoardNotFound, "Board not found")
 		return
 	}
 
@@ -101,12 +97,12 @@ func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeInvalidJSON, "Invalid JSON payload")
 		return
 	}
 
 	if err := h.Validate.Struct(payload); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
 
@@ -114,16 +110,15 @@ func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.Store.UpdateBoard(r.Context(), existingBoard)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if !updated {
-		http.Error(w, "Board not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeBoardNotFound, "Board not found")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(existingBoard)
+	writeJSON(w, http.StatusOK, existingBoard)
 }
 
 //#endregion
@@ -134,11 +129,11 @@ func (h *BoardHandler) DeleteBoard(w http.ResponseWriter, r *http.Request) {
 
 	deleted, err := h.Store.DeleteBoard(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if !deleted {
-		http.Error(w, "Board not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeBoardNotFound, "Board not found")
 		return
 	}
 

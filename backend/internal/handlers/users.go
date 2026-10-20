@@ -21,29 +21,27 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeInvalidJSON, "Invalid JSON payload")
 		return
 	}
 
 	if err := h.Validate.Struct(user); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
 
 	createdAt, err := h.Store.SaveUser(r.Context(), user)
 	if err != nil {
 		if errors.Is(err, store.ErrEmailTaken) {
-			http.Error(w, err.Error(), http.StatusConflict)
+			writeError(w, http.StatusConflict, codeUserEmailTaken, "Email already in use")
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	user.CreatedAt = createdAt
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	writeJSON(w, http.StatusCreated, user)
 }
 
 // #endregion
@@ -52,12 +50,11 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.Store.GetUsers(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
+	writeJSON(w, http.StatusOK, users)
 }
 
 // #endregion
@@ -68,17 +65,16 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.Store.GetUserByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
 	if user.ID == "" {
-		http.Error(w, "User not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeUserNotFound, "User not found")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	writeJSON(w, http.StatusOK, user)
 }
 
 // #endregion
@@ -87,17 +83,17 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "User ID is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeUserIDRequired, "User ID is required")
 		return
 	}
 
 	existingUser, err := h.Store.GetUserByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if existingUser.ID == "" {
-		http.Error(w, "User not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeUserNotFound, "User not found")
 		return
 	}
 
@@ -107,12 +103,12 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeInvalidJSON, "Invalid JSON payload")
 		return
 	}
 
 	if err := h.Validate.Struct(payload); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
 
@@ -122,19 +118,18 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	updated, err := h.Store.UpdateUser(r.Context(), existingUser)
 	if err != nil {
 		if errors.Is(err, store.ErrEmailTaken) {
-			http.Error(w, err.Error(), http.StatusConflict)
+			writeError(w, http.StatusConflict, codeUserEmailTaken, "Email already in use")
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if !updated {
-		http.Error(w, "User not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeUserNotFound, "User not found")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(existingUser)
+	writeJSON(w, http.StatusOK, existingUser)
 }
 
 //#endregion
@@ -145,11 +140,11 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	deleted, err := h.Store.DeleteUser(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if !deleted {
-		http.Error(w, "User not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeUserNotFound, "User not found")
 		return
 	}
 

@@ -19,23 +19,21 @@ type ColumnHandler struct {
 func (h *ColumnHandler) CreateColumn(w http.ResponseWriter, r *http.Request) {
 	var col models.Column
 	if err := json.NewDecoder(r.Body).Decode(&col); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeInvalidJSON, "Invalid JSON payload")
 		return
 	}
 
 	if err := h.Validate.Struct(col); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
 
 	if err := h.Store.SaveColumn(r.Context(), col); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(col)
+	writeJSON(w, http.StatusCreated, col)
 }
 
 //#endregion
@@ -44,18 +42,17 @@ func (h *ColumnHandler) CreateColumn(w http.ResponseWriter, r *http.Request) {
 func (h *ColumnHandler) ListColumns(w http.ResponseWriter, r *http.Request) {
 	boardID := r.URL.Query().Get("board_id")
 	if boardID == "" {
-		http.Error(w, "board_id query parameter is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeBoardIDRequired, "board_id query parameter is required")
 		return
 	}
 
 	columns, err := h.Store.GetColumnsWithCards(r.Context(), boardID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(columns)
+	writeJSON(w, http.StatusOK, columns)
 }
 
 //#endregion
@@ -65,23 +62,22 @@ func (h *ColumnHandler) GetColumn(w http.ResponseWriter, r *http.Request) {
 	// Extract 'id' path parameter (Go 1.22+ net/http router)
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Column ID is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeColumnIDRequired, "Column ID is required")
 		return
 	}
 
 	col, err := h.Store.GetColumnByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
 	if col.ID == "" {
-		http.Error(w, "Column not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeColumnNotFound, "Column not found")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(col)
+	writeJSON(w, http.StatusOK, col)
 }
 
 //#endregion
@@ -90,18 +86,18 @@ func (h *ColumnHandler) GetColumn(w http.ResponseWriter, r *http.Request) {
 func (h *ColumnHandler) UpdateColumn(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Column ID is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeColumnIDRequired, "Column ID is required")
 		return
 	}
 
 	// 1. Fetch existing column from database
 	existingCol, err := h.Store.GetColumnByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if existingCol.ID == "" {
-		http.Error(w, "Column not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeColumnNotFound, "Column not found")
 		return
 	}
 
@@ -112,12 +108,12 @@ func (h *ColumnHandler) UpdateColumn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeInvalidJSON, "Invalid JSON payload")
 		return
 	}
 
 	if err := h.Validate.Struct(req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
 
@@ -128,13 +124,12 @@ func (h *ColumnHandler) UpdateColumn(w http.ResponseWriter, r *http.Request) {
 	// 4. Save back to database
 	_, err = h.Store.UpdateColumn(r.Context(), existingCol)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
 	// 5. Return complete updated column
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(existingCol)
+	writeJSON(w, http.StatusOK, existingCol)
 }
 
 //#endregion
@@ -144,18 +139,18 @@ func (h *ColumnHandler) DeleteColumn(w http.ResponseWriter, r *http.Request) {
 	// Extract 'id' from path parameter (Go 1.22+ net/http pattern routing)
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Column ID is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeColumnIDRequired, "Column ID is required")
 		return
 	}
 
 	deleted, err := h.Store.DeleteColumn(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
 	if !deleted {
-		http.Error(w, "Column not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeColumnNotFound, "Column not found")
 		return
 	}
 

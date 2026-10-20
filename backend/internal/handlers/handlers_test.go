@@ -104,9 +104,7 @@ func TestCreateBoard(t *testing.T) {
 
 		handler.CreateBoard(response, request)
 
-		if response.Code != 400 {
-			t.Fatalf("status = %d, want 400", response.Code)
-		}
+		assertError(t, response, 400, codeInvalidJSON)
 	})
 
 	t.Run("rejects invalid board fields", func(t *testing.T) {
@@ -120,9 +118,10 @@ func TestCreateBoard(t *testing.T) {
 
 		handler.CreateBoard(response, request)
 
-		if response.Code != 400 || called {
-			t.Fatalf("status = %d, store called = %v; want 400 and false", response.Code, called)
+		if called {
+			t.Fatal("store was called for an invalid board")
 		}
+		assertError(t, response, 400, codeValidationFailed)
 	})
 
 	t.Run("returns an internal error when persistence fails", func(t *testing.T) {
@@ -135,9 +134,10 @@ func TestCreateBoard(t *testing.T) {
 
 		handler.CreateBoard(response, request)
 
-		if response.Code != 500 {
-			t.Fatalf("status = %d, want 500", response.Code)
+		if strings.Contains(response.Body.String(), "database unavailable") {
+			t.Fatalf("response leaked internal error: %s", response.Body.String())
 		}
+		assertError(t, response, 500, codeInternalError)
 	})
 }
 
@@ -157,9 +157,7 @@ func TestGetBoard(t *testing.T) {
 
 	handler.GetBoard(response, request)
 
-	if response.Code != 404 {
-		t.Fatalf("status = %d, want 404", response.Code)
-	}
+	assertError(t, response, 404, codeBoardNotFound)
 }
 
 func TestListColumnsRequiresBoardID(t *testing.T) {
@@ -169,9 +167,7 @@ func TestListColumnsRequiresBoardID(t *testing.T) {
 
 	handler.ListColumns(response, request)
 
-	if response.Code != 400 {
-		t.Fatalf("status = %d, want 400", response.Code)
-	}
+	assertError(t, response, 400, codeBoardIDRequired)
 }
 
 func TestMoveCard(t *testing.T) {
@@ -210,9 +206,10 @@ func TestMoveCard(t *testing.T) {
 
 		handler.MoveCard(response, request)
 
-		if response.Code != 400 || called {
-			t.Fatalf("status = %d, store called = %v; want 400 and false", response.Code, called)
+		if called {
+			t.Fatal("store was called for an invalid destination column")
 		}
+		assertError(t, response, 400, codeValidationFailed)
 	})
 
 	t.Run("returns not found when the card does not exist", func(t *testing.T) {
@@ -226,9 +223,7 @@ func TestMoveCard(t *testing.T) {
 
 		handler.MoveCard(response, request)
 
-		if response.Code != 404 {
-			t.Fatalf("status = %d, want 404", response.Code)
-		}
+		assertError(t, response, 404, codeCardNotFound)
 	})
 }
 
@@ -273,9 +268,10 @@ func TestCreateUser(t *testing.T) {
 
 		handler.CreateUser(response, request)
 
-		if response.Code != 400 || called {
-			t.Fatalf("status = %d, store called = %v; want 400 and false", response.Code, called)
+		if called {
+			t.Fatal("store was called for an invalid user")
 		}
+		assertError(t, response, 400, codeValidationFailed)
 	})
 
 	t.Run("returns conflict when the email is taken", func(t *testing.T) {
@@ -288,9 +284,7 @@ func TestCreateUser(t *testing.T) {
 
 		handler.CreateUser(response, request)
 
-		if response.Code != 409 {
-			t.Fatalf("status = %d, want 409", response.Code)
-		}
+		assertError(t, response, 409, codeUserEmailTaken)
 	})
 }
 
@@ -331,9 +325,7 @@ func TestUpdateUser(t *testing.T) {
 
 		handler.UpdateUser(response, request)
 
-		if response.Code != 404 {
-			t.Fatalf("status = %d, want 404", response.Code)
-		}
+		assertError(t, response, 404, codeUserNotFound)
 	})
 
 	t.Run("returns conflict when the email is taken", func(t *testing.T) {
@@ -349,8 +341,6 @@ func TestUpdateUser(t *testing.T) {
 
 		handler.UpdateUser(response, request)
 
-		if response.Code != 409 {
-			t.Fatalf("status = %d, want 409", response.Code)
-		}
+		assertError(t, response, 409, codeUserEmailTaken)
 	})
 }

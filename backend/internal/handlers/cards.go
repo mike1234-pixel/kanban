@@ -20,23 +20,21 @@ func (h *CardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 	var card models.Card
 
 	if err := json.NewDecoder(r.Body).Decode(&card); err != nil {
-		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeInvalidJSON, "Invalid JSON payload")
 		return
 	}
 
 	if err := h.Validate.Struct(card); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
 
 	if err := h.Store.SaveCard(r.Context(), card); err != nil {
-		http.Error(w, "Failed to save card", http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(card)
+	writeJSON(w, http.StatusCreated, card)
 }
 
 // #endregion
@@ -45,12 +43,11 @@ func (h *CardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 func (h *CardHandler) ListCards(w http.ResponseWriter, r *http.Request) {
 	cards, err := h.Store.GetCards(r.Context())
 	if err != nil {
-		http.Error(w, "Failed to fetch cards", http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cards)
+	writeJSON(w, http.StatusOK, cards)
 }
 
 // #endregion
@@ -61,16 +58,15 @@ func (h *CardHandler) GetCard(w http.ResponseWriter, r *http.Request) {
 
 	card, err := h.Store.GetCardByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Failed to fetch card", http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if card.ID == "" {
-		http.Error(w, "Card not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeCardNotFound, "Card not found")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(card)
+	writeJSON(w, http.StatusOK, card)
 }
 
 // #endregion
@@ -81,33 +77,32 @@ func (h *CardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
 
 	var card models.Card
 	if err := json.NewDecoder(r.Body).Decode(&card); err != nil {
-		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeInvalidJSON, "Invalid JSON payload")
 		return
 	}
 
 	if err := h.Validate.Struct(card); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
 
 	success, err := h.Store.UpdateCard(r.Context(), id, card)
 	if err != nil {
-		http.Error(w, "Failed to update card", http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if !success {
-		http.Error(w, "Card not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeCardNotFound, "Card not found")
 		return
 	}
 
 	updatedCard, err := h.Store.GetCardByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Failed to fetch updated card", http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updatedCard)
+	writeJSON(w, http.StatusOK, updatedCard)
 }
 
 //# endregion
@@ -118,11 +113,11 @@ func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
 
 	success, err := h.Store.DeleteCard(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Failed to delete card", http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if !success {
-		http.Error(w, "Card not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeCardNotFound, "Card not found")
 		return
 	}
 
@@ -137,21 +132,21 @@ func (h *CardHandler) MoveCard(w http.ResponseWriter, r *http.Request) {
 		ColumnID string `json:"column_id" validate:"required,uuid"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeInvalidJSON, "Invalid JSON payload")
 		return
 	}
 	if err := h.Validate.Struct(request); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
 
 	moved, err := h.Store.MoveCard(r.Context(), r.PathValue("id"), request.ColumnID)
 	if err != nil {
-		http.Error(w, "Failed to move card", http.StatusInternalServerError)
+		writeInternalError(w, r, err)
 		return
 	}
 	if !moved {
-		http.Error(w, "Card not found", http.StatusNotFound)
+		writeError(w, http.StatusNotFound, codeCardNotFound, "Card not found")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
