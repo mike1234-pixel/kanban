@@ -4,23 +4,26 @@
 
 This is a learning project. The goal is to understand Go and what a backend is actually doing, not to ship features quickly. The Kanban app is the vehicle; each milestone introduces a new backend concept.
 
-Optimise for my understanding, not for speed or completeness.
+Optimise for my understanding of concepts, not for hand-writing code. Pace matters too: the goal is to cover the whole roadmap in about 6 months (by April 2027), roughly two weeks per step.
 
 ## How to help
 
-- Explain the concept and the trade-offs before writing code.
+Workflow for each concept:
 
-- Prefer hints, guidance and small examples. Explain the concept but do not implement the code until I ask you to. I may want to probe my understanding further.
+1. **Explain** the concept and its trade-offs briefly. I may want to probe further before moving on.
+2. **Implement** it yourself in small steps, so each diff is easy to review. I don't hand-write the code; I learn by reading the diffs.
+3. **Check** my understanding with one question about what changed.
+4. **Record** it in `LEARNING.md` and `QUIZ.md`.
+
+Also:
 
 - Keep explanations bitesized. Not walls of text.
 
 - Explain one concept at a time and check that I have understood the concept before moving on.
 
-- When you do write code, keep it small and explain why it is idiomatic Go.
+- Explain briefly why the code you write is idiomatic Go.
 
 - Don't silently fix bugs.
-
-- When reviewing my code, point out non-idiomatic Go and explain the better pattern.
 
 - Connect new work back to the layers it touches: TCP → HTTP → router → middleware → handler → store → Postgres → response.
 
@@ -28,13 +31,11 @@ Optimise for my understanding, not for speed or completeness.
 
 - Stay within the current milestone. If something belongs to a later milestone, say so rather than building it now.
 
-- Before moving onto the next topic, check my understanding with a question about the concept.
-
 ## Technical constraints
 
 - Standard library first: `net/http`, `database/sql`, `encoding/json`, `context`, `log/slog`.
 
-- No ORM and no web framework for now. The verbosity of `database/sql` is intentional; it shows what the database interaction really looks like. Tools like sqlc or pgx come later, once I understand what they abstract.
+- No ORM and no web framework for now. The verbosity of `database/sql` is intentional; it shows what the database interaction really looks like. Tools like sqlc or pgx come later (roadmap step 6), once I understand what they abstract.
 
 - Postgres is the database, accessed through the `lib/pq` driver.
 
@@ -81,28 +82,19 @@ Optimise for my understanding, not for speed or completeness.
 - Error messages come from the handler, not from an error's text, so changing an internal error can't change the API.
 - Database constraints (NOT NULL, UNIQUE, FOREIGN KEY) enforce what must never happen; application code checks what should happen. Map constraint violations to sensible API errors (e.g. UNIQUE → 409).
 
-### Known gaps against these conventions
+### Known issues
 
-- `VALIDATION_FAILED` messages are the validator's raw text (e.g. `Key: 'User.Email' Error:Field validation...`), not per-field details.
-- `GET /cards` and `GET /columns?board_id=` return `null` when empty.
-- Error logging uses `log/slog`, but startup logging in `main.go` still uses `log`/`fmt`.
+Bugs and gaps are tracked in GitHub Issues: https://github.com/mike1234-pixel/kanban/issues
+
+- When you find a problem you aren't fixing now, list it and offer to open an issue (via `gh`) with what's wrong, where it is, and the fix. Create it only after I confirm.
+- Label issues `bug` or `enhancement`.
+- When a commit fixes an issue, include `fixes #N` in the commit message.
 
 ## Roadmap
 
-Work through these in order. Don't add several at once.
+Work through the roadmap in order, one step at a time:
 
-1. **CRUD** (done)
-2. **HTTP fundamentals:** status codes, JSON encode/decode, validation, path/query params, consistent errors, Content-Type, request lifecycle, `context.Context`
-3. **Authentication / authorization:** users, password hashing (bcrypt or Argon2id), sessions + cookies (sessions before JWTs), auth middleware, ownership checks (403 vs 404), database constraints
-4. **Transactions:** a dedicated MoveCard operation that updates the card's column and writes a movement-history row in one transaction (`BeginTx` / `Commit` / `Rollback`)
-5. **Concurrency:** race conditions (two users moving the same card), `SELECT ... FOR UPDATE`, isolation levels, optimistic vs pessimistic concurrency, goroutines, mutexes, channels
-6. **WebSockets:** real-time board updates, hub/broadcast pattern, connection lifecycle, heartbeats, disconnect cleanup, backpressure
-7. **Background workers:** in-process job queue (`chan Job` + worker goroutines) for audit events and notifications
-8. **Caching / Redis**
-9. **Observability:** structured logging with `log/slog`, request IDs, latency and query timing, error tracking, metrics
-10. **Testing**
-11. **Docker + deployment**
-12. **Production architecture**
+@ROADMAP.md
 
 ## Learning log
 
@@ -110,9 +102,19 @@ Work through these in order. Don't add several at once.
 
 - When I've learned a concept (you've checked my understanding), add an entry for it.
 - Group entries under a heading per roadmap step (e.g. `## 2. HTTP Fundamentals`), using the concept names from the roadmap.
+- Go language concepts that aren't on the roadmap (e.g. zero values) go under `## Go basics` at the end.
 - It's a quick reference, not a tutorial: each entry is at most 300 words (aim much shorter), mostly a one-line definition plus a few key bullet points.
 - List concepts from the current step that I haven't learned yet under "Not yet covered", and remove them from that list as they get entries.
 - If the code changes in a way that makes an entry wrong, update the entry.
+
+## Quiz
+
+`QUIZ.md` holds recall questions on the concepts in `LEARNING.md`.
+
+- Questions test recall of concepts, not predicting what code does by reading it.
+- Keep each question short, with a short answer in a collapsible `<details>` block.
+- When an entry is added to `LEARNING.md`, add 2-3 matching questions to `QUIZ.md` under the same heading.
+- When quizzing me: one question at a time, keep a running score, and briefly explain any miss before moving on.
 
 ## Current milestone
 

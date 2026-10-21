@@ -1,14 +1,14 @@
 # Quiz
 
-Questions on the concepts in `LEARNING.md`. Try answering before opening each answer.
+Recall questions on the concepts in `LEARNING.md`. Try answering before opening each answer.
 
 ## 1. CRUD
 
-**1.** Which HTTP method and success status would you use to delete a card?
+**1.** What does CRUD stand for, and which HTTP method goes with each?
 
 <details><summary>Answer</summary>
 
-`DELETE /cards/{id}`, returning 204 No Content.
+Create (`POST`), Read (`GET`), Update (`PUT`), Delete (`DELETE`).
 </details>
 
 **2.** What does *idempotent* mean, and which of `GET`, `POST`, `PUT`, `DELETE` is not idempotent?
@@ -18,59 +18,59 @@ Questions on the concepts in `LEARNING.md`. Try answering before opening each an
 Repeating the request has the same effect as doing it once. `POST` isn't: two creates can make two resources.
 </details>
 
-**3.** How does the store tell the handler that a `DELETE` didn't find the row?
+**3.** An `UPDATE` or `DELETE` matches no rows. Postgres doesn't return an error. How does the store know nothing was found?
 
 <details><summary>Answer</summary>
 
-`RowsAffected()` returns 0, so the store returns `false` and the handler sends 404.
+`RowsAffected()` returns 0.
 </details>
 
 ## 2. HTTP Fundamentals
 
 ### Status codes
 
-**4.** A client sends a valid request, but the database is down. 4xx or 5xx? Why?
+**4.** What do the three status code classes 2xx, 4xx and 5xx mean?
 
 <details><summary>Answer</summary>
 
-5xx (500). It's the server's fault, and the same request might work later.
+2xx: success. 4xx: the client's fault. 5xx: the server's fault.
 </details>
 
-**5.** What status does a handler send if it writes a body but never calls `w.WriteHeader`?
+**5.** What do 201, 204, 404 and 409 mean?
 
 <details><summary>Answer</summary>
 
-200 OK. The first write sends it automatically.
+201 Created, 204 No Content, 404 Not Found, 409 Conflict.
 </details>
 
-**6.** Why does `DeleteBoard` call `w.WriteHeader(http.StatusNoContent)` instead of `writeJSON`?
+**6.** How many times can a handler set the status code?
 
 <details><summary>Answer</summary>
 
-A 204 response must have no body.
+Once. Later calls to `WriteHeader` are ignored.
 </details>
 
 ### JSON encode/decode
 
-**7.** Why does `Decode` need `&board` and not `board`?
+**7.** What does decoding do, and what does encoding do?
 
 <details><summary>Answer</summary>
 
-It fills in the struct, so it needs a pointer to it. A copy would be filled and then thrown away.
+Decoding turns JSON into a Go struct (for requests). Encoding turns a Go struct into JSON (for responses).
 </details>
 
-**8.** `GET /users` returned `null` on an empty table. What caused it, and what fixed it?
+**8.** What does a `nil` slice encode as, and what does an empty slice encode as?
 
 <details><summary>Answer</summary>
 
-`var users []models.User` is a `nil` slice, which encodes as `null`. `users := []models.User{}` is an empty slice, which encodes as `[]`.
+`nil` encodes as `null`; empty encodes as `[]`.
 </details>
 
-**9.** A struct has a field `title string` (lowercase). What happens when you decode `{"title":"Sprint"}` into it?
+**9.** Which struct fields can `encoding/json` see?
 
 <details><summary>Answer</summary>
 
-Nothing. Unexported fields are invisible to `encoding/json`, so it stays empty.
+Only exported fields, the ones starting with a capital letter.
 </details>
 
 ### Validation
@@ -82,41 +82,41 @@ Nothing. Unexported fields are invisible to `encoding/json`, so it stays empty.
 Decoding proves the JSON is readable; validation proves the values make sense (lengths, formats, required fields).
 </details>
 
-**11.** Why is `Position` a `*int` in `UpdateColumn`'s payload?
+**11.** In what order does a create handler decode, validate and call the store?
 
 <details><summary>Answer</summary>
 
-`required` can't tell a missing `int` from `0`. With a pointer, missing is `nil` (rejected) and `0` is a pointer to zero (allowed).
+Decode → validate → store.
 </details>
 
-**12.** Why can't a `validate` tag enforce unique emails? What does instead?
+**12.** Validation can't catch a duplicate email. What does?
 
 <details><summary>Answer</summary>
 
-Validation only sees the request, not what's in the table. The `UNIQUE` constraint catches it, and the store maps Postgres error `23505` to `ErrEmailTaken` → 409.
+The database's `UNIQUE` constraint. The API returns 409 Conflict.
 </details>
 
 ### Path/query params
 
-**13.** Path or query param: the ID of a board? A filter for archived boards?
+**13.** What's a path param for, and what's a query param for?
 
 <details><summary>Answer</summary>
 
-The ID is a path param (`/boards/{id}`); it identifies the resource. The filter is a query param (`/boards?archived=false`); it shapes the result.
+A path param identifies *which* resource (`/boards/{id}`). A query param filters or shapes the result (`/cards?status=completed`).
 </details>
 
-**14.** What does `r.URL.Query().Get("board_id")` return if the parameter is missing?
+**14.** What does a missing query param return in Go?
 
 <details><summary>Answer</summary>
 
 An empty string, `""`.
 </details>
 
-**15.** Several handlers check `if id == ""` after `r.PathValue("id")`. Can it ever be true through the router? What about in tests?
+**15.** What type do path and query params arrive as?
 
 <details><summary>Answer</summary>
 
-Not through the router: `{id}` only matches a non-empty path segment, so `/boards/` never reaches `GetBoard`. In tests that call a handler directly without `SetPathValue`, it is `""`.
+Strings. Numbers need converting, e.g. with `strconv.Atoi`.
 </details>
 
 ### Consistent errors
@@ -128,85 +128,131 @@ Not through the router: `{id}` only matches a non-empty path segment, so `/board
 `code` is for the client's code to branch on; `message` is for people to read.
 </details>
 
-**17.** Why does `writeInternalError` send "Something went wrong" instead of the real error?
+**17.** Where does the HTTP status code go in a response, and where does the application error code go?
 
 <details><summary>Answer</summary>
 
-The real error can leak database details to attackers, and the client can't act on it anyway. It goes to the logs for you instead.
+The HTTP status code is in the status line, the first line of the response. The application error code is in the JSON body.
 </details>
 
-**18.** The store can't choose HTTP status codes. How does it tell the handler "this email is taken"?
+**18.** Why do 500 errors send a generic message instead of the real error?
 
 <details><summary>Answer</summary>
 
-It returns the sentinel error `store.ErrEmailTaken`; the handler checks `errors.Is(err, store.ErrEmailTaken)` and chooses 409.
+The real error can leak database details to attackers, and the client can't act on it anyway. It goes to the logs instead.
+</details>
+
+**19.** Which layer picks the HTTP status code: the handler or the store?
+
+<details><summary>Answer</summary>
+
+The handler. The store only talks to the database and reports what happened.
+</details>
+
+**19b.** Why does the store turn Postgres error `23505` into `ErrBoardExists`, instead of the handler checking for `23505`?
+
+<details><summary>Answer</summary>
+
+Only the store should know Postgres exists. Handlers depend on the `Store` interface, so a test fake or another database can return the same error.
 </details>
 
 ### Content-Type
 
-**19.** What goes wrong if you set `Content-Type` after calling `w.WriteHeader`?
+**20.** What does the `Content-Type` header tell the client?
 
 <details><summary>Answer</summary>
 
-Nothing visible, and that's the problem: headers are already sent, so the new value is silently ignored.
+What format the response body is in, e.g. `application/json`, `text/plain` or `text/html`.
 </details>
 
-**20.** Why did the handlers stop using `http.Error`?
+**21.** In what order must a handler set headers, write the status and write the body?
 
 <details><summary>Answer</summary>
 
-It always sends `text/plain`, so it can't send JSON errors.
+Headers → status (`WriteHeader`) → body.
 </details>
 
 ### Request lifecycle
 
-**21.** Put these in order: mux, TCP handshake, handler, parse, goroutine, TLS handshake, accept.
+**22.** What do TCP and TLS stand for?
 
 <details><summary>Answer</summary>
 
-TCP handshake → TLS handshake (HTTPS only) → accept → goroutine → parse → mux → handler.
+TCP: Transmission Control Protocol. TLS: Transport Layer Security.
 </details>
 
-**22.** You run `curl localhost:8080/boards`. Which handshakes happen?
+**23.** What are the three steps of the TCP handshake?
 
 <details><summary>Answer</summary>
 
-Only TCP. It's `http://`, so there's no TLS.
+SYN (synchronize) → SYN-ACK (synchronize-acknowledge) → ACK (acknowledge).
 </details>
 
-**23.** `r.Body` isn't read when your handler starts. Which line in your code reads it?
+**24.** What does TLS add on top of TCP?
 
 <details><summary>Answer</summary>
 
-`json.NewDecoder(r.Body).Decode(&board)` (or the equivalent in each create/update handler).
+Encryption, and server identity via a certificate. Together they make HTTPS.
 </details>
 
-**24.** Why must anything your handlers share be safe for concurrent use?
+**25.** Why does Go's server give each connection its own goroutine?
 
 <details><summary>Answer</summary>
 
-Each connection gets its own goroutine, so many handlers run at the same time.
+So requests are handled concurrently, and one slow client doesn't block the others.
+</details>
+
+**26.** Which part of the server decides which handler a request goes to?
+
+<details><summary>Answer</summary>
+
+The mux (multiplexer), also called the router.
 </details>
 
 ### `context.Context`
 
-**25.** When is `r.Context()` cancelled?
+**27.** What two things cancel a request's context?
 
 <details><summary>Answer</summary>
 
-When the client disconnects, or when the handler returns.
+The client disconnecting, or the handler returning.
 </details>
 
-**26.** What happens to a slow query if the client disconnects and you used `QueryContext(ctx, ...)`? And with plain `Query(...)`?
+**28.** Why pass `r.Context()` to database calls?
 
 <details><summary>Answer</summary>
 
-With the context, the query is cancelled and its connection goes back to the pool. Without it, Postgres keeps working on a result nobody will read.
+So the database abandons the query if the client disconnects, freeing the connection.
 </details>
 
-**27.** Why shouldn't you store a context in a struct?
+**29.** By convention, where does a context parameter go, and what is it named?
 
 <details><summary>Answer</summary>
 
-A context belongs to one call chain (one request). A struct can outlive that request.
+First in the parameter list, named `ctx`.
+</details>
+
+## Go basics
+
+### Zero values
+
+**30.** What is a zero value?
+
+<details><summary>Answer</summary>
+
+The value Go gives a variable when you don't set one. Every variable always has a value.
+</details>
+
+**31.** What are the zero values of `int`, `string` and `bool`?
+
+<details><summary>Answer</summary>
+
+`0`, `""` and `false`.
+</details>
+
+**32.** What is the zero value of a pointer, slice or map?
+
+<details><summary>Answer</summary>
+
+`nil`.
 </details>

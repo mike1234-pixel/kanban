@@ -4,14 +4,14 @@ Quick reference for the roadmap concepts I've learned.
 
 ## 1. CRUD
 
-**Create, Read, Update, Delete**: the four operations on a stored resource. Each maps to an HTTP method; the method says *what to do*, the path says *to what*.
+**Create, Read, Update, Delete**: the four operations on a stored resource. Each maps to an HTTP method; the method says _what to do_, the path says _to what_.
 
-| Operation | Request | Success |
-| --- | --- | --- |
-| Create | `POST /boards` | 201 |
-| Read | `GET /boards`, `GET /boards/{id}` | 200 |
-| Update | `PUT /boards/{id}` | 200 |
-| Delete | `DELETE /boards/{id}` | 204 |
+| Operation | Request                           | Success |
+| --------- | --------------------------------- | ------- |
+| Create    | `POST /boards`                    | 201     |
+| Read      | `GET /boards`, `GET /boards/{id}` | 200     |
+| Update    | `PUT /boards/{id}`                | 200     |
+| Delete    | `DELETE /boards/{id}`             | 204     |
 
 - **Idempotent** means repeating the request has the same effect as doing it once. `GET`, `PUT` and `DELETE` are idempotent; `POST` isn't.
 - Not found is detected with `sql.ErrNoRows` (reads) or `RowsAffected() == 0` (updates and deletes).
@@ -34,7 +34,18 @@ Converting between JSON text and Go structs.
 
 - **Decode:** `json.NewDecoder(r.Body).Decode(&v)`, pass a pointer so it can fill `v`.
 - **Encode:** `json.NewEncoder(w).Encode(v)`.
-- Struct tags map names: `json:"created_at"`. Only exported (Capitalised) fields are included.
+- **Struct tags** set a field's name in JSON. Go field names are `CamelCase`, while JSON keys here are `snake_case`, so the tag links the two:
+
+  ```go
+  CreatedAt time.Time `json:"created_at"`   // Go: CreatedAt  ↔  JSON: "created_at"
+  ```
+
+- **Only exported fields are encoded or decoded.** A field is exported if its name starts with a capital letter, which makes it visible outside its package. `encoding/json` is a different package from yours, so it can't see lowercase fields:
+
+  ```go
+  Title string   // exported: included in JSON
+  notes string   // unexported: ignored
+  ```
 - A `nil` slice encodes as `null`; an empty slice as `[]`.
 - Unknown fields are ignored; wrong types are a decode error (400).
 
@@ -49,7 +60,7 @@ Decoding proves the JSON is readable; validation proves it makes sense.
 
 ### Path/query params
 
-- **Path params identify *which* resource:** `GET /boards/{id}`, read with `r.PathValue("id")`.
+- **Path params identify _which_ resource:** `GET /boards/{id}`, read with `r.PathValue("id")`.
 - **Query params filter or shape the result:** `/columns?board_id=…`, read with `r.URL.Query().Get("board_id")`. Returns `""` if missing.
 - The router matches path params and methods (wrong method → 405); it ignores query params, so the handler checks them.
 - Both arrive as strings; convert numbers with `strconv.Atoi`.
@@ -59,13 +70,25 @@ Decoding proves the JSON is readable; validation proves it makes sense.
 Every error has one shape, so the client handles them all the same way:
 
 ```json
-{"error": {"code": "BOARD_NOT_FOUND", "message": "Board not found"}}
+{ "error": { "code": "BOARD_NOT_FOUND", "message": "Board not found" } }
 ```
 
+An error response carries two different codes, in two different places:
+
+```
+HTTP/1.1 404 Not Found            ← status line: HTTP status code
+Content-Type: application/json    ← headers
+
+{"error": {"code": "BOARD_NOT_FOUND", "message": "Board not found"}}   ← body: application error code
+```
+
+- The **HTTP status code** (404) is in the status line, before the headers. It gives the general category, which any HTTP client understands.
+- The **application error code** (`BOARD_NOT_FOUND`) is in the JSON body. It says exactly what went wrong, which only clients of this API understand.
 - **Codes** are for code to branch on; **messages** are for people.
 - Codes are constants in `handlers/respond.go`; `writeError` builds every error.
 - 500s log the real error and send a generic message, never internal details.
 - The store returns sentinel errors (`store.ErrEmailTaken`); the handler checks them with `errors.Is` and picks the status.
+- Why not check `23505` in the handler? Only the store knows Postgres exists. Handlers depend on the `Store` interface, so a test fake (or a different database) can return `ErrBoardExists` with no Postgres involved.
 
 ### Content-Type
 
@@ -83,14 +106,17 @@ What happens between a client connecting and the response arriving.
 TCP handshake → (TLS handshake) → accept → goroutine → parse → mux → handler → response
 ```
 
-- **TCP handshake** (SYN → SYN-ACK → ACK) opens a reliable connection.
-- **TLS handshake** runs on top of TCP, for HTTPS only: encryption plus server identity. This project uses plain HTTP (`ListenAndServe`), so local traffic is unencrypted. `localhost` traffic never leaves the machine, though.
+- **TCP (Transmission Control Protocol) handshake** opens a reliable connection in three steps:
+  1. **SYN** (synchronize), client: "I want to talk to you."
+  2. **SYN-ACK** (synchronize-acknowledge), server: "I hear you, and I want to talk to you too."
+  3. **ACK** (acknowledge), client: "Got it, connection established."
+- **TLS (Transport Layer Security) handshake** runs on top of TCP, for HTTPS only: encryption plus server identity. This project uses plain HTTP (`ListenAndServe`), so local traffic is unencrypted. `localhost` traffic never leaves the machine, though.
 - **One goroutine per connection.** The server accepts connections in a loop; a slow client doesn't block others.
 - **Parse:** raw bytes become an `*http.Request`. `r.Body` is a stream, read later by the handler.
 - **Route:** the mux matches method and path, then calls your handler with `(w, r)`.
 - **Respond:** the handler writes to `w`; when it returns, the response is finished and `r.Context()` is cancelled.
 - **Keep-alive:** the connection usually stays open for the client's next request.
-- Handlers run concurrently, so shared state must be safe for concurrent use. `*sql.DB` is.
+- Handlers run concurrently, so shared state must be safe for concurrent use. `*sql.DB` is safe for concurrent use.
 
 ### `context.Context`
 
@@ -99,3 +125,17 @@ Carries a cancellation signal (plus deadlines and request values) down a call ch
 - `r.Context()` is cancelled when the client disconnects or the handler returns.
 - Pass it to the database (`QueryContext`, `ExecContext`, `BeginTx`) so abandoned queries stop and free their connection.
 - Conventions: first parameter, named `ctx`; never stored in a struct; use `context.Background()` when there's no request.
+
+## Go basics
+
+### Zero values
+
+In Go, every variable always has a value. If you don't give it one, Go fills in that type's zero value:
+
+| Type | Zero value |
+| --- | --- |
+| `int` | `0` |
+| `string` | `""` (empty string) |
+| `bool` | `false` |
+| pointer, slice, map | `nil` |
+| struct | every field set to its own zero value |
