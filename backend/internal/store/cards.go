@@ -31,7 +31,7 @@ func (s *PostgresStore) GetCards(ctx context.Context) ([]models.Card, error) {
 
 	defer rows.Close() // release the network connection back to the pool. Defer executes just before the method returns.
 
-	var cards []models.Card // for less verbose mapping, consider sqlx - helpers for mapping SQL results into Go structs, sqlc - generates go code from SQL, ORM - generates SQL from go code
+	cards := []models.Card{} // for less verbose mapping, consider sqlx - helpers for mapping SQL results into Go structs, sqlc - generates go code from SQL, ORM - generates SQL from go code
 
 	for rows.Next() {
 		var c models.Card
