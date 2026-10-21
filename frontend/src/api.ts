@@ -21,14 +21,36 @@ export type Board = {
   columns: Column[]
 }
 
+// ApiError carries the API's error code so callers can branch on it,
+// e.g. `err instanceof ApiError && err.code === 'BOARD_NOT_FOUND'`.
+export class ApiError extends Error {
+  status: number
+  code?: string
+
+  constructor(message: string, status: number, code?: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.code = code
+  }
+}
+
+// The API's error format: {"error": {"code": "...", "message": "..."}}
+type ErrorBody = { error?: { code?: string; message?: string } }
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || `Request failed (${response.status})`)
+    // Not every error is guaranteed to be JSON (e.g. a proxy failure), so fall back to a generic message.
+    const body: ErrorBody | null = await response.json().catch(() => null)
+    throw new ApiError(
+      body?.error?.message ?? `Request failed (${response.status})`,
+      response.status,
+      body?.error?.code,
+    )
   }
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
