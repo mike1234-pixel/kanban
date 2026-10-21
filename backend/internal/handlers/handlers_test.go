@@ -124,6 +124,19 @@ func TestCreateBoard(t *testing.T) {
 		assertError(t, response, 400, codeValidationFailed)
 	})
 
+	t.Run("returns conflict when the board ID already exists", func(t *testing.T) {
+		handler := BoardHandler{
+			Store:    testStore{saveBoard: func(models.Board) error { return store.ErrBoardExists }},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("POST", "/boards", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","title":"Sprint planning"}`))
+		response := httptest.NewRecorder()
+
+		handler.CreateBoard(response, request)
+
+		assertError(t, response, 409, codeBoardExists)
+	})
+
 	t.Run("returns an internal error when persistence fails", func(t *testing.T) {
 		handler := BoardHandler{
 			Store:    testStore{saveBoard: func(models.Board) error { return errors.New("database unavailable") }},

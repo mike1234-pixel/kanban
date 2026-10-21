@@ -2,11 +2,20 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
-	_ "github.com/lib/pq" // Driver side-effect import to register PostgreSQL with database/sql
+	"github.com/lib/pq" // also registers the PostgreSQL driver with database/sql
 )
+
+// uniqueViolation is the Postgres error code for a unique constraint violation.
+const uniqueViolation = "23505"
+
+func isUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	return errors.As(err, &pqErr) && pqErr.Code == uniqueViolation
+}
 
 type PostgresStore struct {
 	db *sql.DB

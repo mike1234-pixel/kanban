@@ -12,6 +12,9 @@ func (s *PostgresStore) SaveBoard(ctx context.Context, board models.Board) (time
 	query := `INSERT INTO boards (id, title) VALUES ($1, $2) RETURNING created_at`
 	var createdAt time.Time
 	err := s.db.QueryRowContext(ctx, query, board.ID, board.Title).Scan(&createdAt)
+	if isUniqueViolation(err) {
+		return time.Time{}, ErrBoardExists
+	}
 	return createdAt, err
 }
 

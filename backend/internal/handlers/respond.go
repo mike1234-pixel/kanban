@@ -15,6 +15,7 @@ const (
 
 	codeBoardNotFound   = "BOARD_NOT_FOUND"
 	codeBoardIDRequired = "BOARD_ID_REQUIRED"
+	codeBoardExists     = "BOARD_ALREADY_EXISTS"
 
 	codeColumnNotFound   = "COLUMN_NOT_FOUND"
 	codeColumnIDRequired = "COLUMN_ID_REQUIRED"

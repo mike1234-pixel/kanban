@@ -10,6 +10,9 @@ import (
 // ErrEmailTaken is returned when a user is saved with an email that already belongs to another user.
 var ErrEmailTaken = errors.New("email already in use")
 
+// ErrBoardExists is returned when a board is saved with an ID that is already in use.
+var ErrBoardExists = errors.New("board already exists")
+
 type Store interface {
 	//#region Card Operations
 	SaveCard(ctx context.Context, card models.Card) error

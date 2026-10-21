@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"kanban/internal/models"
@@ -31,6 +32,10 @@ func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) {
 
 	createdAt, err := h.Store.SaveBoard(r.Context(), board)
 	if err != nil {
+		if errors.Is(err, store.ErrBoardExists) {
+			writeError(w, http.StatusConflict, codeBoardExists, "A board with this ID already exists")
+			return
+		}
 		writeInternalError(w, r, err)
 		return
 	}

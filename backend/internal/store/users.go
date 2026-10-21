@@ -3,20 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"kanban/internal/models"
 	"time"
-
-	"github.com/lib/pq"
 )
-
-// uniqueViolation is the Postgres error code for a unique constraint violation.
-const uniqueViolation = "23505"
-
-func isUniqueViolation(err error) bool {
-	var pqErr *pq.Error
-	return errors.As(err, &pqErr) && pqErr.Code == uniqueViolation
-}
 
 // #region Save User
 func (s *PostgresStore) SaveUser(ctx context.Context, user models.User) (time.Time, error) {
