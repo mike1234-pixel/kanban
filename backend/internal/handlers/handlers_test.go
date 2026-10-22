@@ -13,6 +13,7 @@ import (
 	"kanban/internal/store"
 
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // testStore overrides only the operations exercised by a test. Embedding the
@@ -249,17 +250,23 @@ func TestCreateUser(t *testing.T) {
 				if user.Email != "ada@example.com" {
 					t.Fatalf("saved email = %q, want ada@example.com", user.Email)
 				}
+				if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte("correct-horse")); err != nil {
+					t.Fatalf("saved hash doesn't match the password: %v", err)
+				}
 				return nil
 			}},
 			Validate: testValidator(),
 		}
-		request := httptest.NewRequest("POST", "/users", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","name":"Ada","email":"ada@example.com"}`))
+		request := httptest.NewRequest("POST", "/users", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","name":"Ada","email":"ada@example.com","password":"correct-horse"}`))
 		response := httptest.NewRecorder()
 
 		handler.CreateUser(response, request)
 
 		if response.Code != 201 || !called {
 			t.Fatalf("status = %d, store called = %v; want 201 and true", response.Code, called)
+		}
+		if body := response.Body.String(); strings.Contains(body, "password") || strings.Contains(body, "$2a$") {
+			t.Fatalf("response leaks the password or its hash: %s", body)
 		}
 		var created models.User
 		if err := json.NewDecoder(response.Body).Decode(&created); err != nil {
@@ -292,12 +299,29 @@ func TestCreateUser(t *testing.T) {
 			Store:    testStore{saveUser: func(models.User) error { return store.ErrEmailTaken }},
 			Validate: testValidator(),
 		}
-		request := httptest.NewRequest("POST", "/users", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","name":"Ada","email":"ada@example.com"}`))
+		request := httptest.NewRequest("POST", "/users", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","name":"Ada","email":"ada@example.com","password":"correct-horse"}`))
 		response := httptest.NewRecorder()
 
 		handler.CreateUser(response, request)
 
 		assertError(t, response, 409, codeUserEmailTaken)
+	})
+
+	t.Run("rejects a password shorter than 8 characters", func(t *testing.T) {
+		called := false
+		handler := UserHandler{
+			Store:    testStore{saveUser: func(models.User) error { called = true; return nil }},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("POST", "/users", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","name":"Ada","email":"ada@example.com","password":"short"}`))
+		response := httptest.NewRecorder()
+
+		handler.CreateUser(response, request)
+
+		if called {
+			t.Fatal("store was called with a too-short password")
+		}
+		assertError(t, response, 400, codeValidationFailed)
 	})
 }
 

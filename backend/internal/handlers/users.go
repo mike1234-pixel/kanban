@@ -9,6 +9,7 @@ import (
 	"kanban/internal/store"
 
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserHandler struct {
@@ -18,17 +19,35 @@ type UserHandler struct {
 
 // #region Create User
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var user models.User
+	// Embedding models.User reuses its fields and validation tags; Password exists only on the request.
+	var payload struct {
+		models.User
+		Password string `json:"password" validate:"required,min=8,max=72"`
+	}
 
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, codeInvalidJSON, "Invalid JSON payload")
 		return
 	}
 
-	if err := h.Validate.Struct(user); err != nil {
+	if err := h.Validate.Struct(payload); err != nil {
 		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
+	if err != nil {
+		// max=72 counts characters, but bcrypt's limit is 72 bytes, and some characters (e.g. é, emoji) take several.
+		if errors.Is(err, bcrypt.ErrPasswordTooLong) {
+			writeError(w, http.StatusBadRequest, codeValidationFailed, "Password must be at most 72 bytes")
+			return
+		}
+		writeInternalError(w, r, err)
+		return
+	}
+
+	user := payload.User
+	user.PasswordHash = string(hash)
 
 	createdAt, err := h.Store.SaveUser(r.Context(), user)
 	if err != nil {

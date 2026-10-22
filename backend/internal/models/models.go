@@ -41,6 +41,9 @@ type User struct {
 	Name      string    `json:"name" validate:"required,min=1,max=100"`
 	Email     string    `json:"email" validate:"required,email,max=254"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
+
+	// PasswordHash is never sent to or read from clients: "-" tells encoding/json to skip it.
+	PasswordHash string `json:"-"`
 }
 
 //#endregion

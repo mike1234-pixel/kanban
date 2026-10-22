@@ -9,9 +9,9 @@ import (
 
 // #region Save User
 func (s *PostgresStore) SaveUser(ctx context.Context, user models.User) (time.Time, error) {
-	query := `INSERT INTO users (id, name, email) VALUES ($1, $2, $3) RETURNING created_at`
+	query := `INSERT INTO users (id, name, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING created_at`
 	var createdAt time.Time
-	err := s.db.QueryRowContext(ctx, query, user.ID, user.Name, user.Email).Scan(&createdAt)
+	err := s.db.QueryRowContext(ctx, query, user.ID, user.Name, user.Email, user.PasswordHash).Scan(&createdAt)
 	if isUniqueViolation(err) {
 		return time.Time{}, ErrEmailTaken
 	}
