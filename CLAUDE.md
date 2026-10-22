@@ -120,11 +120,11 @@ Work through the roadmap in order, one step at a time:
 
 <!-- Update this as you progress -->
 
-Working on: step 2, HTTP fundamentals.
+Working on: step 3, authentication / authorization.
 
-- Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates). No passwords or auth yet.
-- Done: consistent JSON errors with error codes, and logged generic 500s.
-- Next: authentication → authorization → middleware → context.
+- Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates).
+- In progress: password hashing with bcrypt. `users.password_hash` exists (`TEXT NOT NULL`); `POST /users` doesn't fill it yet, so it returns 500 until that's done.
+- Next: sessions + cookies → auth middleware → ownership checks.
 - Note: `MoveCard` already runs in a transaction and writes to `card_movements` (step 4 groundwork).
 
 ## Commands

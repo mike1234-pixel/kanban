@@ -126,6 +126,26 @@ Carries a cancellation signal (plus deadlines and request values) down a call ch
 - Pass it to the database (`QueryContext`, `ExecContext`, `BeginTx`) so abandoned queries stop and free their connection.
 - Conventions: first parameter, named `ctx`; never stored in a struct; use `context.Background()` when there's no request.
 
+## 3. Authentication / Authorization
+
+### Password hashing
+
+Never store passwords, only a hash of them. A hash is one-way: the same input always gives the same output, but the output can't be turned back into the password.
+
+```
+sign-up:  store bcrypt(password)
+login:    bcrypt(what they typed) == stored hash?  →  correct password
+```
+
+- **Slow on purpose.** Attackers guess passwords and hash each guess. Fast hashes (SHA-256) allow billions of guesses a second; bcrypt and Argon2id take about 100ms each. The cost factor (`bcrypt.DefaultCost` = 10) sets how slow.
+- **Salt:** a random value mixed in before hashing, so identical passwords get different hashes. It defeats precomputed lookup tables (rainbow tables). It isn't secret.
+- **bcrypt stores everything in one string:** `$2a$10$<salt><hash>` holds the version, cost, salt and hash, so `CompareHashAndPassword` can repeat the hash at login.
+- **bcrypt vs Argon2id:** Argon2id is newer and memory-hard (resists GPUs); bcrypt is simpler and still safe. This project uses bcrypt.
+- bcrypt only uses the first 72 **bytes**, so validate the password length (here 8–72) and handle `bcrypt.ErrPasswordTooLong`.
+- In Go: the tag `json:"-"` on `PasswordHash` keeps the hash out of every JSON response. The column is `password_hash TEXT NOT NULL`.
+
+Not yet covered: sessions + cookies, auth middleware, ownership checks (403 vs 404), database constraints.
+
 ## Go basics
 
 ### Zero values
