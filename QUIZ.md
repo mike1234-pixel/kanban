@@ -236,55 +236,30 @@ First in the parameter list, named `ctx`.
 
 ### Password hashing
 
-**33.** Why must a password hash be slow?
+**30.** Why must a password hash be slow?
 
 <details><summary>Answer</summary>
 
 Attackers guess passwords and hash each guess. A slow hash (about 100ms) makes guessing millions of passwords impractical, while one login barely notices.
 </details>
 
-**34.** What is a salt, and what attack does it stop?
+**31.** What is a salt, and what attack does it stop?
 
 <details><summary>Answer</summary>
 
 A random value mixed into each password before hashing, so identical passwords get different hashes. It stops precomputed lookup tables (rainbow tables).
 </details>
 
-**35.** How does login check a password, if a hash can't be reversed?
+**32.** How does login check a password, if a hash can't be reversed?
 
 <details><summary>Answer</summary>
 
 It hashes what the user typed with the same salt and cost (read from the stored hash) and compares the result with the stored hash.
 </details>
 
-**36.** Which struct tag keeps a field out of JSON responses?
+**33.** Which struct tag keeps a field out of JSON responses?
 
 <details><summary>Answer</summary>
 
 `json:"-"`.
-</details>
-
-## Go basics
-
-### Zero values
-
-**30.** What is a zero value?
-
-<details><summary>Answer</summary>
-
-The value Go gives a variable when you don't set one. Every variable always has a value.
-</details>
-
-**31.** What are the zero values of `int`, `string` and `bool`?
-
-<details><summary>Answer</summary>
-
-`0`, `""` and `false`.
-</details>
-
-**32.** What is the zero value of a pointer, slice or map?
-
-<details><summary>Answer</summary>
-
-`nil`.
 </details>

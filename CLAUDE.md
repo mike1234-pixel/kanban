@@ -13,7 +13,7 @@ Workflow for each concept:
 1. **Explain** the concept and its trade-offs briefly. I may want to probe further before moving on.
 2. **Implement** it yourself in small steps, so each diff is easy to review. I don't hand-write the code; I learn by reading the diffs.
 3. **Check** my understanding with one question about what changed.
-4. **Record** it in `LEARNING.md` and `QUIZ.md`.
+4. **Record** it in `LEARNING.md` and `QUIZ.md` (backend concepts) or `LEARNING_GO.md` and `QUIZ_GO.md` (Go syntax).
 
 Also:
 
@@ -102,18 +102,25 @@ Work through the roadmap in order, one step at a time:
 
 - When I've learned a concept (you've checked my understanding), add an entry for it.
 - Group entries under a heading per roadmap step (e.g. `## 2. HTTP Fundamentals`), using the concept names from the roadmap.
-- Go language concepts that aren't on the roadmap (e.g. zero values) go under `## Go basics` at the end.
+- Go syntax goes in `LEARNING_GO.md` instead (see below).
 - It's a quick reference, not a tutorial: each entry is at most 300 words (aim much shorter), mostly a one-line definition plus a few key bullet points.
 - List concepts from the current step that I haven't learned yet under "Not yet covered", and remove them from that list as they get entries.
 - If the code changes in a way that makes an entry wrong, update the entry.
 
+## Go reference
+
+`LEARNING_GO.md` is a quick reference for Go syntax, not on the roadmap. It covers the Go used in this codebase, with examples taken from it.
+
+- When a diff uses Go syntax that isn't in `LEARNING_GO.md` yet (e.g. goroutines, channels, `switch`), point it out and add an entry.
+- Same format as `LEARNING.md`: a one-line definition, a short example, a few bullets.
+
 ## Quiz
 
-`QUIZ.md` holds recall questions on the concepts in `LEARNING.md`.
+`QUIZ.md` holds recall questions on the concepts in `LEARNING.md`; `QUIZ_GO.md` does the same for `LEARNING_GO.md`.
 
 - Questions test recall of concepts, not predicting what code does by reading it.
 - Keep each question short, with a short answer in a collapsible `<details>` block.
-- When an entry is added to `LEARNING.md`, add 2-3 matching questions to `QUIZ.md` under the same heading.
+- When an entry is added to `LEARNING.md` or `LEARNING_GO.md`, add 2-3 matching questions to its quiz file under the same heading.
 - When quizzing me: one question at a time, keep a running score, and briefly explain any miss before moving on.
 
 ## Current milestone

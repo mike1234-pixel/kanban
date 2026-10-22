@@ -146,16 +146,4 @@ login:    bcrypt(what they typed) == stored hash?  →  correct password
 
 Not yet covered: sessions + cookies, auth middleware, ownership checks (403 vs 404), database constraints.
 
-## Go basics
-
-### Zero values
-
-In Go, every variable always has a value. If you don't give it one, Go fills in that type's zero value:
-
-| Type | Zero value |
-| --- | --- |
-| `int` | `0` |
-| `string` | `""` (empty string) |
-| `bool` | `false` |
-| pointer, slice, map | `nil` |
-| struct | every field set to its own zero value |
+Go syntax lives in `LEARNING_GO.md`.
