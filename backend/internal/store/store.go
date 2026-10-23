@@ -45,5 +45,10 @@ type Store interface {
 	GetUserByID(ctx context.Context, id string) (models.User, error)
 	UpdateUser(ctx context.Context, user models.User) (bool, error)
 	DeleteUser(ctx context.Context, id string) (bool, error)
+	GetUserByEmail(ctx context.Context, email string) (models.User, error)
+	//#endregion
+
+	//#region Session operations
+	CreateSession(ctx context.Context, tokenHash, userID string, expiresAt time.Time) error
 	//#endregion
 }

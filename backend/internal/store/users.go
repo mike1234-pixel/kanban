@@ -58,6 +58,23 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (models.User
 
 //#endregion
 
+// #region Get User By Email
+// GetUserByEmail is for login, so unlike the other reads it also loads the password hash.
+func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (models.User, error) {
+	var u models.User
+	query := `SELECT id, name, email, password_hash, created_at FROM users WHERE email = $1`
+	err := s.db.QueryRowContext(ctx, query, email).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.CreatedAt)
+	if err == sql.ErrNoRows {
+		return models.User{}, nil
+	}
+	if err != nil {
+		return models.User{}, err
+	}
+	return u, nil
+}
+
+//#endregion
+
 // #region Update User
 func (s *PostgresStore) UpdateUser(ctx context.Context, user models.User) (bool, error) {
 	query := `UPDATE users SET name = $1, email = $2 WHERE id = $3`

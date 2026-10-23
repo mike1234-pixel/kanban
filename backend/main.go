@@ -72,6 +72,10 @@ func main() {
 	mux.HandleFunc("PUT /users/{id}", userHandler.UpdateUser)
 	mux.HandleFunc("DELETE /users/{id}", userHandler.DeleteUser)
 
+	authHandler := &handlers.AuthHandler{Store: dbStore, Validate: validate}
+
+	mux.HandleFunc("POST /login", authHandler.Login)
+
 	fmt.Println("Server running on http://localhost:8080")
 
 	if err := http.ListenAndServe(":8080", mux); err != nil {

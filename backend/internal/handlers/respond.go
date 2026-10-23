@@ -25,6 +25,8 @@ const (
 	codeUserNotFound   = "USER_NOT_FOUND"
 	codeUserIDRequired = "USER_ID_REQUIRED"
 	codeUserEmailTaken = "USER_EMAIL_TAKEN"
+
+	codeInvalidCredentials = "INVALID_CREDENTIALS"
 )
 
 // errorResponse is the body of every error response:

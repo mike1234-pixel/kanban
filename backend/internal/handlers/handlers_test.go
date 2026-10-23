@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -28,6 +29,17 @@ type testStore struct {
 	saveUser   func(models.User) error
 	getUser    func(string) (models.User, error)
 	updateUser func(models.User) (bool, error)
+
+	getUserByEmail func(string) (models.User, error)
+	createSession  func(tokenHash, userID string) error
+}
+
+func (s testStore) GetUserByEmail(_ context.Context, email string) (models.User, error) {
+	return s.getUserByEmail(email)
+}
+
+func (s testStore) CreateSession(_ context.Context, tokenHash, userID string, _ time.Time) error {
+	return s.createSession(tokenHash, userID)
 }
 
 func (s testStore) SaveUser(_ context.Context, user models.User) (time.Time, error) {
@@ -379,5 +391,77 @@ func TestUpdateUser(t *testing.T) {
 		handler.UpdateUser(response, request)
 
 		assertError(t, response, 409, codeUserEmailTaken)
+	})
+}
+
+func TestLogin(t *testing.T) {
+	const userID = "4c85d3f2-e917-4a3f-929a-11b02499a33f"
+	hash, err := bcrypt.GenerateFromPassword([]byte("correct-horse"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ada := models.User{ID: userID, Name: "Ada", Email: "ada@example.com", PasswordHash: string(hash)}
+
+	login := func(store testStore, body string) *httptest.ResponseRecorder {
+		handler := AuthHandler{Store: store, Validate: testValidator()}
+		request := httptest.NewRequest("POST", "/login", strings.NewReader(body))
+		response := httptest.NewRecorder()
+		handler.Login(response, request)
+		return response
+	}
+
+	t.Run("sets an HttpOnly session cookie and stores only its hash", func(t *testing.T) {
+		var storedHash, storedUserID string
+		response := login(testStore{
+			getUserByEmail: func(string) (models.User, error) { return ada, nil },
+			createSession: func(tokenHash, userID string) error {
+				storedHash, storedUserID = tokenHash, userID
+				return nil
+			},
+		}, `{"email":"ada@example.com","password":"correct-horse"}`)
+
+		if response.Code != 200 {
+			t.Fatalf("status = %d, want 200", response.Code)
+		}
+		cookies := response.Result().Cookies()
+		if len(cookies) != 1 || cookies[0].Name != sessionCookieName {
+			t.Fatalf("cookies = %v, want one %q cookie", cookies, sessionCookieName)
+		}
+		cookie := cookies[0]
+		if !cookie.HttpOnly || !cookie.Secure || cookie.SameSite != http.SameSiteLaxMode {
+			t.Errorf("cookie flags: HttpOnly=%v Secure=%v SameSite=%v; want true, true, Lax", cookie.HttpOnly, cookie.Secure, cookie.SameSite)
+		}
+		if storedHash == cookie.Value {
+			t.Error("the store received the raw session token; it should only get the hash")
+		}
+		if storedHash != hashToken(cookie.Value) {
+			t.Error("stored hash doesn't match the cookie's token")
+		}
+		if storedUserID != userID {
+			t.Errorf("session user = %q, want %q", storedUserID, userID)
+		}
+		if strings.Contains(response.Body.String(), "$2a$") {
+			t.Error("response leaks the password hash")
+		}
+	})
+
+	t.Run("rejects a wrong password", func(t *testing.T) {
+		response := login(testStore{
+			getUserByEmail: func(string) (models.User, error) { return ada, nil },
+			createSession: func(string, string) error {
+				t.Fatal("session created for a wrong password")
+				return nil
+			},
+		}, `{"email":"ada@example.com","password":"wrong-password"}`)
+
+		assertError(t, response, 401, codeInvalidCredentials)
+	})
+
+	t.Run("rejects an unknown email with the same error", func(t *testing.T) {
+		response := login(testStore{
+			getUserByEmail: func(string) (models.User, error) { return models.User{}, nil },
+		}, `{"email":"nobody@example.com","password":"correct-horse"}`)
+
+		assertError(t, response, 401, codeInvalidCredentials)
 	})
 }
