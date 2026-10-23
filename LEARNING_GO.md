@@ -183,6 +183,18 @@ i, ok := colMap[id]              // get; ok is false if the key is missing
 
 ## Functions and methods
 
+### Parameters that share a type
+
+Neighbouring parameters with the same type can share one type name:
+
+```go
+func CreateSession(ctx context.Context, tokenHash, userID string, expiresAt time.Time) error
+//                                      └── both strings ──┘
+```
+
+- `tokenHash, userID string` means the same as `tokenHash string, userID string`.
+- Also works in `var` declarations and struct fields: `var storedHash, storedUserID string`.
+
 ### Methods and receivers
 
 A method is a function attached to a type. The receiver goes before the name.

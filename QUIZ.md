@@ -149,7 +149,7 @@ The real error can leak database details to attackers, and the client can't act 
 The handler. The store only talks to the database and reports what happened.
 </details>
 
-**19b.** Why does the store turn Postgres error `23505` into `ErrBoardExists`, instead of the handler checking for `23505`?
+**20.** Why does the store turn Postgres error `23505` into `ErrBoardExists`, instead of the handler checking for `23505`?
 
 <details><summary>Answer</summary>
 
@@ -158,14 +158,14 @@ Only the store should know Postgres exists. Handlers depend on the `Store` inter
 
 ### Content-Type
 
-**20.** What does the `Content-Type` header tell the client?
+**21.** What does the `Content-Type` header tell the client?
 
 <details><summary>Answer</summary>
 
 What format the response body is in, e.g. `application/json`, `text/plain` or `text/html`.
 </details>
 
-**21.** In what order must a handler set headers, write the status and write the body?
+**22.** In what order must a handler set headers, write the status and write the body?
 
 <details><summary>Answer</summary>
 
@@ -174,35 +174,35 @@ Headers → status (`WriteHeader`) → body.
 
 ### Request lifecycle
 
-**22.** What do TCP and TLS stand for?
+**23.** What do TCP and TLS stand for?
 
 <details><summary>Answer</summary>
 
 TCP: Transmission Control Protocol. TLS: Transport Layer Security.
 </details>
 
-**23.** What are the three steps of the TCP handshake?
+**24.** What are the three steps of the TCP handshake?
 
 <details><summary>Answer</summary>
 
 SYN (synchronize) → SYN-ACK (synchronize-acknowledge) → ACK (acknowledge).
 </details>
 
-**24.** What does TLS add on top of TCP?
+**25.** What does TLS add on top of TCP?
 
 <details><summary>Answer</summary>
 
 Encryption, and server identity via a certificate. Together they make HTTPS.
 </details>
 
-**25.** Why does Go's server give each connection its own goroutine?
+**26.** Why does Go's server give each connection its own goroutine?
 
 <details><summary>Answer</summary>
 
 So requests are handled concurrently, and one slow client doesn't block the others.
 </details>
 
-**26.** Which part of the server decides which handler a request goes to?
+**27.** Which part of the server decides which handler a request goes to?
 
 <details><summary>Answer</summary>
 
@@ -211,21 +211,21 @@ The mux (multiplexer), also called the router.
 
 ### `context.Context`
 
-**27.** What two things cancel a request's context?
+**28.** What two things cancel a request's context?
 
 <details><summary>Answer</summary>
 
 The client disconnecting, or the handler returning.
 </details>
 
-**28.** Why pass `r.Context()` to database calls?
+**29.** Why pass `r.Context()` to database calls?
 
 <details><summary>Answer</summary>
 
 So the database abandons the query if the client disconnects, freeing the connection.
 </details>
 
-**29.** By convention, where does a context parameter go, and what is it named?
+**30.** By convention, where does a context parameter go, and what is it named?
 
 <details><summary>Answer</summary>
 
@@ -236,30 +236,115 @@ First in the parameter list, named `ctx`.
 
 ### Password hashing
 
-**30.** Why must a password hash be slow?
+**31.** Why must a password hash be slow?
 
 <details><summary>Answer</summary>
 
 Attackers guess passwords and hash each guess. A slow hash (about 100ms) makes guessing millions of passwords impractical, while one login barely notices.
 </details>
 
-**31.** What is a salt, and what attack does it stop?
+**32.** What is a salt, and what attack does it stop?
 
 <details><summary>Answer</summary>
 
 A random value mixed into each password before hashing, so identical passwords get different hashes. It stops precomputed lookup tables (rainbow tables).
 </details>
 
-**32.** How does login check a password, if a hash can't be reversed?
+**33.** How does login check a password, if a hash can't be reversed?
 
 <details><summary>Answer</summary>
 
 It hashes what the user typed with the same salt and cost (read from the stored hash) and compares the result with the stored hash.
 </details>
 
-**33.** Which struct tag keeps a field out of JSON responses?
+**34.** Which struct tag keeps a field out of JSON responses?
 
 <details><summary>Answer</summary>
 
 `json:"-"`.
+</details>
+
+### Sessions and cookies
+
+**35.** HTTP is stateless. How does the server know who sent a request after login?
+
+<details><summary>Answer</summary>
+
+Login creates a session and sets a cookie holding a random session token. The browser sends the cookie on every request, and the server looks the token up in the `sessions` table.
+</details>
+
+**36.** Why store a hash of the session token rather than the token itself?
+
+<details><summary>Answer</summary>
+
+A token is usable as it is: anyone with it is logged in. If the table leaks, hashes can't be used.
+</details>
+
+**37.** Why is SHA-256 fine for session tokens, when passwords need bcrypt?
+
+<details><summary>Answer</summary>
+
+Tokens are long and random, so they can't be guessed; slowness adds nothing and would slow every request. Passwords are guessable, so they need a slow hash.
+</details>
+
+**38.** What do the cookie flags `HttpOnly`, `Secure` and `SameSite` do?
+
+<details><summary>Answer</summary>
+
+`HttpOnly`: JavaScript can't read it. `Secure`: only sent over HTTPS. `SameSite`: not sent on requests started by other sites.
+</details>
+
+### Sessions vs JWTs
+
+**39.** What's the main difference between a session token and a JWT?
+
+<details><summary>Answer</summary>
+
+A session token is a random ID the server looks up; a JWT contains the user's details, signed, so the server trusts it without a lookup.
+</details>
+
+**40.** How do you log a user out everywhere with sessions, and why is it hard with JWTs?
+
+<details><summary>Answer</summary>
+
+Delete all their session rows. A JWT has nothing stored to delete, so it stays valid until it expires (unless you add a blocklist).
+</details>
+
+**41.** Is a JWT's payload secret?
+
+<details><summary>Answer</summary>
+
+No. JWTs are usually signed, not encrypted: anyone can read the payload, but can't change it without breaking the signature.
+</details>
+
+### User enumeration
+
+**42.** What is user enumeration?
+
+<details><summary>Answer</summary>
+
+Using an app's responses (messages or timing) to find out which emails have accounts.
+</details>
+
+**43.** What two things does login keep identical for an unknown email and a wrong password?
+
+<details><summary>Answer</summary>
+
+The error message (and status), and the response time.
+</details>
+
+### Database constraints
+
+**44.** What happens if you delete a user who still has sessions, when `sessions.user_id` is `REFERENCES users(id)` without `ON DELETE CASCADE`?
+
+<details><summary>Answer</summary>
+
+Postgres refuses the delete with a foreign key violation (`23503`).
+</details>
+
+**45.** What does `ON DELETE CASCADE` do?
+
+<details><summary>Answer</summary>
+
+Deleting the referenced row (the user) also deletes the rows that reference it (their sessions).
 </details>

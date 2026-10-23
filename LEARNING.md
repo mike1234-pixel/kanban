@@ -144,6 +144,52 @@ login:    bcrypt(what they typed) == stored hash?  →  correct password
 - bcrypt only uses the first 72 **bytes**, so validate the password length (here 8–72) and handle `bcrypt.ErrPasswordTooLong`.
 - In Go: the tag `json:"-"` on `PasswordHash` keeps the hash out of every JSON response. The column is `password_hash TEXT NOT NULL`.
 
-Not yet covered: sessions + cookies, auth middleware, ownership checks (403 vs 404), database constraints.
+### Sessions and cookies
+
+HTTP is stateless: each request arrives with no memory of earlier ones. A session lets the server recognise a logged-in user without resending the password.
+
+```
+POST /login  → check password → create session → Set-Cookie: session=<token>
+GET /boards  → browser sends Cookie: session=<token> → look up session → user
+```
+
+- **Session:** a server-side record mapping a token to a user and an expiry (`sessions` table).
+- **Session token:** 32 random bytes from `crypto/rand` (never `math/rand`, which is predictable). Possessing it *is* being logged in.
+- **Store only its hash** (`token_hash`). A leaked table must not contain usable tokens. SHA-256 is fine here: a random token can't be guessed, so bcrypt's slowness would only slow every request.
+- **Cookie flags:** `HttpOnly` (JS can't read it: XSS), `Secure` (HTTPS only), `SameSite` (not sent on other sites' requests: CSRF), `Expires`/`Max-Age`.
+- **Logout** = delete the session row; it stops working immediately. Log out everywhere: `DELETE FROM sessions WHERE user_id = $1`.
+- `http.SetCookie` writes a header, so it must come before the body.
+
+### Sessions vs JWTs
+
+A **JWT** (JSON Web Token) holds the user's details itself (`{"user_id":…,"exp":…}`), signed by the server. The server checks the signature and trusts the contents, with no lookup.
+
+| | Sessions | JWT |
+| --- | --- | --- |
+| Client holds | A random ID, meaningless alone | The data itself, signed |
+| Per request | One database lookup | Verify the signature only |
+| Revoke | Delete the row: instant | Valid until it expires (unless you add a blocklist, which is a lookup again) |
+| Stale data | No, looked up fresh | Yes, e.g. an old role stays in old tokens |
+
+- JWTs are usually **signed, not encrypted**: anyone can read the payload; the signature only stops changes.
+- JWTs suit many services verifying users without a shared database. For one browser app with one backend, sessions are simpler and logout really works.
+
+### User enumeration
+
+Using an app's responses to find out which emails have accounts.
+
+- Login returns the same `401 INVALID_CREDENTIALS` "Invalid email or password" for an unknown email and a wrong password.
+- It also takes the same time: for an unknown email it still runs bcrypt against a dummy hash. Otherwise the instant reply would give it away.
+- 401 Unauthorized means "we don't know who you are".
+
+### Database constraints
+
+The database enforces what must never happen, even if the Go code has a bug.
+
+- `NOT NULL`, `UNIQUE` (`23505` → 409), and **foreign keys**: `user_id UUID REFERENCES users(id)` means a session must point at a real user.
+- Deleting a row that others still reference fails (`23503`), unless the foreign key says what to do: `ON DELETE CASCADE` deletes the referencing rows too.
+- No foreign key at all would allow orphaned rows.
+
+Not yet covered: auth middleware, ownership checks (403 vs 404).
 
 Go syntax lives in `LEARNING_GO.md`.

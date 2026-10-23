@@ -255,16 +255,25 @@ A value of any type. It's short for `interface{}`.
 
 ## Functions and methods
 
+### Parameters that share a type
+
+**32.** What does `func f(tokenHash, userID string)` mean?
+
+<details><summary>Answer</summary>
+
+Both `tokenHash` and `userID` are strings. Neighbouring parameters of the same type can share one type name.
+</details>
+
 ### Methods and receivers
 
-**32.** What is a receiver?
+**33.** What is a receiver?
 
 <details><summary>Answer</summary>
 
 The value a method is attached to, written before the method name: `func (h *UserHandler) CreateUser(...)`.
 </details>
 
-**33.** What's the difference between a pointer receiver and a value receiver?
+**34.** What's the difference between a pointer receiver and a value receiver?
 
 <details><summary>Answer</summary>
 
@@ -273,14 +282,14 @@ A pointer receiver works on the original; a value receiver gets a copy.
 
 ### Functions as values
 
-**34.** In `mux.HandleFunc("POST /users", userHandler.CreateUser)`, why is there no `()` after `CreateUser`?
+**35.** In `mux.HandleFunc("POST /users", userHandler.CreateUser)`, why is there no `()` after `CreateUser`?
 
 <details><summary>Answer</summary>
 
 The method is passed as a value for the router to call later; `()` would call it now.
 </details>
 
-**35.** What is a closure?
+**36.** What is a closure?
 
 <details><summary>Answer</summary>
 
@@ -289,14 +298,14 @@ An anonymous function that uses variables from the code around it.
 
 ### `defer`
 
-**36.** When does a deferred call run?
+**37.** When does a deferred call run?
 
 <details><summary>Answer</summary>
 
 When the surrounding function returns, however it returns.
 </details>
 
-**37.** Where should `defer rows.Close()` go?
+**38.** Where should `defer rows.Close()` go?
 
 <details><summary>Answer</summary>
 
@@ -305,14 +314,14 @@ Right after successfully getting `rows`, so cleanup can't be forgotten.
 
 ## Interfaces
 
-**38.** How does a type satisfy an interface in Go?
+**39.** How does a type satisfy an interface in Go?
 
 <details><summary>Answer</summary>
 
 By having all its methods. It's automatic; there's no `implements` keyword.
 </details>
 
-**39.** Why do handlers depend on the `Store` interface rather than `*PostgresStore`?
+**40.** Why do handlers depend on the `Store` interface rather than `*PostgresStore`?
 
 <details><summary>Answer</summary>
 
@@ -321,28 +330,28 @@ So tests can pass in a fake store instead of a real database.
 
 ## Errors
 
-**40.** What does a `nil` error mean?
+**41.** What does a `nil` error mean?
 
 <details><summary>Answer</summary>
 
 Success.
 </details>
 
-**41.** Go has no exceptions. How do errors travel up the call chain?
+**42.** Go has no exceptions. How do errors travel up the call chain?
 
 <details><summary>Answer</summary>
 
 They're returned, and each caller checks `if err != nil`.
 </details>
 
-**42.** What does `%w` do in `fmt.Errorf`?
+**43.** What does `%w` do in `fmt.Errorf`?
 
 <details><summary>Answer</summary>
 
 Wraps the original error, adding context while keeping it findable with `errors.Is` and `errors.As`.
 </details>
 
-**43.** What's the difference between `errors.Is` and `errors.As`?
+**44.** What's the difference between `errors.Is` and `errors.As`?
 
 <details><summary>Answer</summary>
 
@@ -351,21 +360,21 @@ Wraps the original error, adding context while keeping it findable with `errors.
 
 ## Testing
 
-**44.** How must test files and test functions be named?
+**45.** How must test files and test functions be named?
 
 <details><summary>Answer</summary>
 
 Files end in `_test.go`; functions start with `Test` and take `t *testing.T`.
 </details>
 
-**45.** What's the difference between `t.Fatalf` and `t.Errorf`?
+**46.** What's the difference between `t.Fatalf` and `t.Errorf`?
 
 <details><summary>Answer</summary>
 
 `t.Fatalf` fails and stops the test; `t.Errorf` fails and keeps going.
 </details>
 
-**46.** What does `./...` mean in `go test ./...`?
+**47.** What does `./...` mean in `go test ./...`?
 
 <details><summary>Answer</summary>
 

@@ -14,4 +14,4 @@ Work through these in order. Don't add several at once.
 10. **Observability:** structured logging with `log/slog`, request IDs, latency and query timing, error tracking, metrics
 11. **Testing**
 12. **Docker + deployment**
-13. **Production architecture**
+13. **Production architecture:** includes service-to-service communication with gRPC (HTTP/2, Protocol Buffers, `.proto` contracts) vs REST. Exercise: move the notification worker (step 8) into its own service and call it over gRPC.
