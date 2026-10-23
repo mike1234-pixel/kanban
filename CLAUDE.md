@@ -131,7 +131,8 @@ Working on: step 3, authentication / authorization.
 
 - Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates).
 - Done: password hashing with bcrypt. `POST /users` requires a password (8–72 characters) and stores only its hash in `users.password_hash`; tested live.
-- Next: sessions + cookies (including a login endpoint that uses `bcrypt.CompareHashAndPassword`) → auth middleware → ownership checks.
+- Done: sessions + cookies. `POST /login` sets an `HttpOnly`, `Secure`, `SameSite=Lax` `session` cookie; `sessions` stores only the token's SHA-256 (`hashToken` in `handlers/auth.go`). Nothing reads the cookie yet.
+- Next: auth middleware (read the cookie, look up the session, reject missing or expired ones) → logout → ownership checks.
 - Note: `MoveCard` already runs in a transaction and writes to `card_movements` (step 4 groundwork).
 
 ## Commands
