@@ -50,5 +50,6 @@ type Store interface {
 
 	//#region Session operations
 	CreateSession(ctx context.Context, tokenHash, userID string, expiresAt time.Time) error
+	GetSessionUser(ctx context.Context, tokenHash string) (models.User, error)
 	//#endregion
 }
