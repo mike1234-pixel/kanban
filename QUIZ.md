@@ -348,3 +348,33 @@ Postgres refuses the delete with a foreign key violation (`23503`).
 
 Deleting the referenced row (the user) also deletes the rows that reference it (their sessions).
 </details>
+
+### Auth middleware
+
+**46.** What is middleware?
+
+<details><summary>Answer</summary>
+
+A function that wraps a handler and runs on every request to it, before (and after) the handler. In Go: `func(next http.Handler) http.Handler`.
+</details>
+
+**47.** How does middleware reject a request?
+
+<details><summary>Answer</summary>
+
+It writes the error response and returns without calling `next.ServeHTTP`, so the handler never runs.
+</details>
+
+**48.** How does the auth middleware pass the logged-in user to the handler?
+
+<details><summary>Answer</summary>
+
+It adds the user to the request's context with `context.WithValue`, and passes on `r.WithContext(ctx)`. The handler reads it back from `r.Context()`.
+</details>
+
+**49.** Why put the session check in middleware rather than in each handler?
+
+<details><summary>Answer</summary>
+
+It's written once, it can't be forgotten on a new route, and handlers keep their one job.
+</details>

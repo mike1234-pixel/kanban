@@ -190,6 +190,30 @@ The database enforces what must never happen, even if the Go code has a bug.
 - Deleting a row that others still reference fails (`23503`), unless the foreign key says what to do: `ON DELETE CASCADE` deletes the referencing rows too.
 - No foreign key at all would allow orphaned rows.
 
-Not yet covered: auth middleware, ownership checks (403 vs 404).
+### Auth middleware
+
+Middleware is a function that wraps a handler and runs on every request to it, before (and after) the handler. In Go: `func(next http.Handler) http.Handler`.
+
+```
+request → router → RequireAuth → Me handler
+                      │
+                      └─ no valid session → 401, Me never runs
+```
+
+`RequireAuth` (`handlers/middleware.go`):
+
+1. Read the `session` cookie. Missing → `401 UNAUTHENTICATED`.
+2. `GetSessionUser(hashToken(cookie))`. Unknown or expired (`expires_at > NOW()` in SQL) → empty user → `401`.
+3. Put the user in the request's context: `context.WithValue(r.Context(), userKey, user)`.
+4. `next.ServeHTTP(w, r.WithContext(ctx))`.
+
+- **Rejecting = write the response and `return` without calling `next`.**
+- Why middleware: the check is written once, can't be forgotten on a new route, and handlers keep one job.
+- Handlers read the user with `userFromContext(r.Context())`. If it's missing, the route wasn't wrapped: a bug, so 500, not 401.
+- Context values are for request-scoped data (the user, a request ID), with an unexported key type so other packages can't clash.
+- Wiring: `mux.Handle("GET /me", auth.RequireAuth(http.HandlerFunc(auth.Me)))`.
+- `401 UNAUTHENTICATED` (not logged in) is a different code from `401 INVALID_CREDENTIALS` (wrong login details).
+
+Not yet covered: ownership checks (403 vs 404).
 
 Go syntax lives in `LEARNING_GO.md`.

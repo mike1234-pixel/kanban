@@ -17,7 +17,15 @@ CREATE TABLE users (
 );
 ```
 
-- `CREATE TABLE IF NOT EXISTS` does nothing if the table is already there (used for `card_movements` on startup).
+- If a table with that name already exists:
+
+  | Statement | Result |
+  | --- | --- |
+  | `CREATE TABLE users …` | Fails: `ERROR: relation "users" already exists` |
+  | `CREATE TABLE IF NOT EXISTS users …` | Does nothing, no error |
+
+  If it doesn't exist, both create it. A name can never be used by two tables.
+- The API uses `IF NOT EXISTS` for `card_movements` on startup; without it, the second `go run .` would fail.
 - `ALTER TABLE users ADD COLUMN …` changes an existing table.
 
 ### Column types

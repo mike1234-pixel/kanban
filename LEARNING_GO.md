@@ -181,6 +181,22 @@ i, ok := colMap[id]              // get; ok is false if the key is missing
 
 `any` means a value of any type (short for `interface{}`): `func writeJSON(w http.ResponseWriter, status int, v any)`.
 
+### Type assertions
+
+Get the concrete type back out of an `any` (or other interface) value: `value.(Type)`.
+
+```go
+user, ok := ctx.Value(userKey).(models.User)
+```
+
+| Stored value | `user` | `ok` |
+| --- | --- | --- |
+| a `models.User` | that user | `true` |
+| something else, or nothing | `models.User{}` (zero value) | `false` |
+
+- Always use the `, ok` form. Without it (`ctx.Value(userKey).(models.User)` alone), a wrong type panics.
+- Same comma-ok shape as a map lookup: `v, ok := m[key]`.
+
 ## Functions and methods
 
 ### Parameters that share a type
