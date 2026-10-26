@@ -149,10 +149,17 @@ An alias: a short name for the table, so `s.user_id` means `sessions.user_id`.
 
 <details><summary>Answer</summary>
 
-Finding rows quickly, without scanning the whole table.
+Finding rows by a column's value without reading every row. It's a sorted copy of that column's values, each with its row's location.
 </details>
 
-**19.** What's the trade-off of adding an index?
+**19.** Does a foreign key column get an index automatically?
+
+<details><summary>Answer</summary>
+
+No. `PRIMARY KEY` and `UNIQUE` do; a foreign key like `cards.column_id` doesn't, so you add one with `CREATE INDEX`.
+</details>
+
+**20.** What's the trade-off of adding an index?
 
 <details><summary>Answer</summary>
 
@@ -161,37 +168,51 @@ Faster reads, but slightly slower writes and more storage.
 
 ### `EXPLAIN`
 
-**20.** What does `EXPLAIN` show?
+**21.** What does `EXPLAIN` show?
 
 <details><summary>Answer</summary>
 
 How Postgres plans to run a query, e.g. whether it uses an index or scans every row.
 </details>
 
-**21.** In a query plan, which is slow on a big table: an index scan or a sequential scan?
+**22.** In a query plan, which is slow on a big table: an index scan or a sequential scan?
 
 <details><summary>Answer</summary>
 
 A sequential scan (`Seq Scan`): it reads every row.
 </details>
 
+**23.** In a query plan, what's the difference between `Index Cond` and `Filter`?
+
+<details><summary>Answer</summary>
+
+`Index Cond` is answered by an index. `Filter` is checked on each row, one by one.
+</details>
+
+**24.** What does `EXPLAIN ANALYZE` do that `EXPLAIN` doesn't, and why be careful with it?
+
+<details><summary>Answer</summary>
+
+It actually runs the query and shows real times. On a `DELETE` or `UPDATE` it really changes the data.
+</details>
+
 ## Go's `database/sql`
 
-**22.** When do you use `QueryRowContext`, `QueryContext` and `ExecContext`?
+**25.** When do you use `QueryRowContext`, `QueryContext` and `ExecContext`?
 
 <details><summary>Answer</summary>
 
 `QueryRowContext`: one row. `QueryContext`: many rows. `ExecContext`: writes with no rows back.
 </details>
 
-**23.** What does `QueryRowContext(...).Scan` return when no row matches?
+**26.** What does `QueryRowContext(...).Scan` return when no row matches?
 
 <details><summary>Answer</summary>
 
 `sql.ErrNoRows`.
 </details>
 
-**24.** Why does `Scan` take pointers, like `Scan(&u.ID, &u.Name)`?
+**27.** Why does `Scan` take pointers, like `Scan(&u.ID, &u.Name)`?
 
 <details><summary>Answer</summary>
 

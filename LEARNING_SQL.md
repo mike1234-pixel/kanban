@@ -88,37 +88,111 @@ s.db.QueryRowContext(ctx, `SELECT … FROM users WHERE email = $1`, email)
 
 ### `JOIN`
 
-Combines rows from two tables in one query, matching on a condition:
+`JOIN` builds one result from two tables. For each row of the first table, Postgres finds the rows of the second table that satisfy the `ON` condition, and outputs one row containing the columns of both.
 
-```sql
-SELECT u.id, u.name, u.email
-FROM sessions s
-JOIN users u ON u.id = s.user_id
-WHERE s.token_hash = $1
+**Example.** Two tables:
+
+```
+sessions                     users
+token_hash | user_id         id | name
+-----------+--------         ---+-----
+a3e6…      | 1               1  | Ada
+9f2c…      | 2               2  | Bo
+77b1…      | 1
 ```
 
-- `s` and `u` are **aliases**: short names, so `s.user_id` means `sessions.user_id`.
-- `JOIN` (an inner join) keeps only rows that match on both sides.
-- It's usually the same link a foreign key protects.
+The query:
+
+```sql
+SELECT s.token_hash, u.name
+FROM sessions s
+JOIN users u ON u.id = s.user_id
+```
+
+What Postgres does:
+
+1. `FROM sessions s`: take each row of `sessions`.
+2. `JOIN users u ON u.id = s.user_id`: for that row, find the `users` row whose `id` equals the session's `user_id`.
+3. Output one row with the selected columns from both.
+
+Result:
+
+```
+token_hash | name
+-----------+-----
+a3e6…      | Ada     ← session a3e6… has user_id 1 → users row 1
+9f2c…      | Bo      ← session 9f2c… has user_id 2 → users row 2
+77b1…      | Ada     ← session 77b1… has user_id 1 → users row 1
+```
+
+Adding `WHERE s.token_hash = $1` keeps only the row for one token. That is `GetSessionUser`: one query returns the user for a session. Without `JOIN` it would take two queries: read `user_id` from `sessions`, then read that user from `users`.
+
+- `s` and `u` are **aliases** for the table names. `s.user_id` means `sessions.user_id`. They are needed when both tables have a column with the same name (`created_at`).
+- A row with no match is left out of the result. This is called an inner join, and it's what `JOIN` means on its own.
+- The `ON` condition is usually the foreign key: `sessions.user_id REFERENCES users(id)`.
 
 ## Performance
 
 ### Indexes
 
-A lookup structure (like a book's index) that finds rows without scanning the whole table.
+An index is a separate, sorted structure that Postgres keeps alongside a table. It stores the values of one column (or several), each with the location of its row. Because it's sorted, Postgres can find a value in a few steps instead of checking every row.
 
-- `PRIMARY KEY` and `UNIQUE` create one automatically.
-- Columns you filter on often (`WHERE …`) are candidates for one: `CREATE INDEX … ON columns (board_id)`.
-- Trade-off: faster reads, slightly slower writes, more storage.
+**Without an index**, `WHERE column_id = $1` makes Postgres read every row of `cards` and test each one:
+
+```
+row 1: column_id = b1ee…?  yes → keep
+row 2: column_id = b1ee…?  no
+row 3: column_id = b1ee…?  no
+… and so on, for every row in the table
+```
+
+**With an index on `id`**, `WHERE id = $1` looks the value up in the sorted index, gets the row's location, and reads only that row.
+
+- With 3 rows the difference is nothing. With 1,000,000 rows, a full read checks 1,000,000 rows; an index lookup checks about 20 entries.
+- `PRIMARY KEY` and `UNIQUE` create an index automatically: `cards_pkey`, `users_email_key`.
+- **A foreign key does not.** `cards.column_id` has no index, so `WHERE column_id = $1` reads every row. You add one with `CREATE INDEX cards_column_id_idx ON cards (column_id);`.
+- Add indexes for columns you often filter, join or sort on.
+- Cost: every `INSERT`, `UPDATE` and `DELETE` must also update each index on the table, and indexes take disk space. So don't index every column.
 
 ### `EXPLAIN`
 
-Shows how Postgres plans to run a query, without running it.
+`EXPLAIN` before a query shows the plan Postgres would use to run it, without running it. Real output from this project's database:
+
+```sql
+EXPLAIN SELECT * FROM cards WHERE id = 'c2ee…';
+```
 
 ```
-Index Scan using sessions_pkey on sessions   ← uses an index: good
-Seq Scan on cards                            ← reads every row: slow on big tables
+Index Scan using cards_pkey on cards  (cost=0.14..8.16 rows=1 width=878)
+  Index Cond: (id = 'c2ee…'::uuid)
 ```
+
+`id` has an index (`cards_pkey`), so Postgres uses it. `Index Cond` is the condition the index answers.
+
+```sql
+EXPLAIN SELECT * FROM cards WHERE column_id = 'b1ee…';
+```
+
+```
+Seq Scan on cards  (cost=0.00..11.12 rows=1 width=878)
+  Filter: (column_id = 'b1ee…'::uuid)
+```
+
+`column_id` has no index, so Postgres reads every row (`Seq Scan`, a sequential scan) and tests each one (`Filter`).
+
+How to read a plan:
+
+| Part | Meaning |
+| --- | --- |
+| `Index Scan using <index>` | Finds rows through that index |
+| `Seq Scan` | Reads every row of the table |
+| `Index Cond` | Condition answered by the index |
+| `Filter` | Condition checked row by row |
+| `cost=0.14..8.16` | Postgres's estimate of the work (startup..total), in its own units. Compare plans with it; it isn't milliseconds. |
+| `rows=1` | Estimated number of rows returned |
+
+- `EXPLAIN ANALYZE` actually runs the query and adds real times. Careful: on a `DELETE` or `UPDATE` it really changes the data.
+- On a tiny table, Postgres may choose a `Seq Scan` even when an index exists, because reading a few rows directly is cheaper. Plans only become meaningful with realistic amounts of data.
 
 ## Go's `database/sql`
 
