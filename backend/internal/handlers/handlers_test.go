@@ -32,6 +32,11 @@ type testStore struct {
 
 	getUserByEmail func(string) (models.User, error)
 	createSession  func(tokenHash, userID string) error
+	getSessionUser func(tokenHash string) (models.User, error)
+}
+
+func (s testStore) GetSessionUser(_ context.Context, tokenHash string) (models.User, error) {
+	return s.getSessionUser(tokenHash)
 }
 
 func (s testStore) GetUserByEmail(_ context.Context, email string) (models.User, error) {
@@ -464,4 +469,77 @@ func TestLogin(t *testing.T) {
 
 		assertError(t, response, 401, codeInvalidCredentials)
 	})
+}
+
+func TestRequireAuth(t *testing.T) {
+	ada := models.User{ID: "4c85d3f2-e917-4a3f-929a-11b02499a33f", Name: "Ada", Email: "ada@example.com"}
+
+	// next records whether it ran, and which user it found in the context.
+	var nextCalled bool
+	var gotUser models.User
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+		gotUser, _ = userFromContext(r.Context())
+	})
+
+	run := func(store testStore, cookie *http.Cookie) *httptest.ResponseRecorder {
+		nextCalled, gotUser = false, models.User{}
+		handler := AuthHandler{Store: store}
+		request := httptest.NewRequest("GET", "/me", nil)
+		if cookie != nil {
+			request.AddCookie(cookie)
+		}
+		response := httptest.NewRecorder()
+		handler.RequireAuth(next).ServeHTTP(response, request)
+		return response
+	}
+
+	t.Run("rejects a request without a session cookie", func(t *testing.T) {
+		response := run(testStore{}, nil)
+
+		assertError(t, response, 401, codeUnauthenticated)
+		if nextCalled {
+			t.Error("next handler ran without a session")
+		}
+	})
+
+	t.Run("rejects an unknown or expired session", func(t *testing.T) {
+		response := run(testStore{
+			getSessionUser: func(string) (models.User, error) { return models.User{}, nil },
+		}, &http.Cookie{Name: sessionCookieName, Value: "not-a-real-token"})
+
+		assertError(t, response, 401, codeUnauthenticated)
+		if nextCalled {
+			t.Error("next handler ran with an invalid session")
+		}
+	})
+
+	t.Run("passes a valid session through with the user in the context", func(t *testing.T) {
+		var lookedUp string
+		response := run(testStore{
+			getSessionUser: func(tokenHash string) (models.User, error) {
+				lookedUp = tokenHash
+				return ada, nil
+			},
+		}, &http.Cookie{Name: sessionCookieName, Value: "real-token"})
+
+		if response.Code != 200 || !nextCalled {
+			t.Fatalf("status = %d, next called = %v; want 200 and true", response.Code, nextCalled)
+		}
+		if lookedUp != hashToken("real-token") {
+			t.Error("the store wasn't given the hash of the cookie's token")
+		}
+		if gotUser.ID != ada.ID {
+			t.Errorf("user in context = %q, want %q", gotUser.ID, ada.ID)
+		}
+	})
+}
+
+func TestMeWithoutRequireAuthIsAServerError(t *testing.T) {
+	handler := AuthHandler{}
+	response := httptest.NewRecorder()
+
+	handler.Me(response, httptest.NewRequest("GET", "/me", nil))
+
+	assertError(t, response, 500, codeInternalError)
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -79,6 +80,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
+
+	writeJSON(w, http.StatusOK, user)
+}
+
+// #endregion
+
+// #region Me
+// Me returns the logged-in user. It must be wrapped in RequireAuth.
+func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	user, ok := userFromContext(r.Context())
+	if !ok {
+		// Only possible if the route was registered without RequireAuth: a bug, not a client error.
+		writeInternalError(w, r, errors.New("Me called without RequireAuth"))
+		return
+	}
 
 	writeJSON(w, http.StatusOK, user)
 }

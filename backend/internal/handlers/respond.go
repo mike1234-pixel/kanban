@@ -27,6 +27,7 @@ const (
 	codeUserEmailTaken = "USER_EMAIL_TAKEN"
 
 	codeInvalidCredentials = "INVALID_CREDENTIALS"
+	codeUnauthenticated    = "UNAUTHENTICATED"
 )
 
 // errorResponse is the body of every error response:
