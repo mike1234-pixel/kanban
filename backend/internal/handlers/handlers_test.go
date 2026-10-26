@@ -24,8 +24,8 @@ type testStore struct {
 	store.Store
 	saveBoard  func(models.Board) error
 	getBoard   func(id, ownerID string) (models.Board, error)
-	getColumns func(string) ([]models.Column, error)
-	moveCard   func(string, string) (bool, error)
+	getColumns func(boardID, ownerID string) ([]models.Column, error)
+	moveCard   func(id, columnID, ownerID string) (bool, error)
 	saveUser   func(models.User) error
 	getUser    func(string) (models.User, error)
 	updateUser func(models.User) (bool, error)
@@ -36,6 +36,28 @@ type testStore struct {
 	deleteSession  func(tokenHash string) error
 
 	updateBoard func(models.Board) (bool, error)
+
+	saveCard func(card models.Card, ownerID string) (bool, error)
+
+	saveColumn   func(col models.Column, ownerID string) (bool, error)
+	getColumn    func(id, ownerID string) (models.Column, error)
+	updateColumn func(col models.Column, ownerID string) (bool, error)
+}
+
+func (s testStore) SaveCard(_ context.Context, card models.Card, ownerID string) (bool, error) {
+	return s.saveCard(card, ownerID)
+}
+
+func (s testStore) SaveColumn(_ context.Context, col models.Column, ownerID string) (bool, error) {
+	return s.saveColumn(col, ownerID)
+}
+
+func (s testStore) GetColumnByID(_ context.Context, id, ownerID string) (models.Column, error) {
+	return s.getColumn(id, ownerID)
+}
+
+func (s testStore) UpdateColumn(_ context.Context, col models.Column, ownerID string) (bool, error) {
+	return s.updateColumn(col, ownerID)
 }
 
 func (s testStore) UpdateBoard(_ context.Context, board models.Board) (bool, error) {
@@ -89,12 +111,12 @@ func (s testStore) GetBoardByID(_ context.Context, id, ownerID string) (models.B
 	return s.getBoard(id, ownerID)
 }
 
-func (s testStore) GetColumnsWithCards(_ context.Context, boardID string) ([]models.Column, error) {
-	return s.getColumns(boardID)
+func (s testStore) GetColumnsWithCards(_ context.Context, boardID, ownerID string) ([]models.Column, error) {
+	return s.getColumns(boardID, ownerID)
 }
 
-func (s testStore) MoveCard(_ context.Context, id, columnID string) (bool, error) {
-	return s.moveCard(id, columnID)
+func (s testStore) MoveCard(_ context.Context, id, columnID, ownerID string) (bool, error) {
+	return s.moveCard(id, columnID, ownerID)
 }
 
 func testValidator() *validator.Validate {
@@ -215,7 +237,7 @@ func TestListColumnsRequiresBoardID(t *testing.T) {
 	request := httptest.NewRequest("GET", "/columns", nil)
 	response := httptest.NewRecorder()
 
-	handler.ListColumns(response, request)
+	handler.ListColumns(response, asUser(request))
 
 	assertError(t, response, 400, codeBoardIDRequired)
 }
@@ -224,10 +246,10 @@ func TestMoveCard(t *testing.T) {
 	t.Run("moves a card", func(t *testing.T) {
 		called := false
 		handler := CardHandler{
-			Store: testStore{moveCard: func(id, columnID string) (bool, error) {
+			Store: testStore{moveCard: func(id, columnID, ownerID string) (bool, error) {
 				called = true
-				if id != "card-id" || columnID != "a5fc3aed-6138-4e57-a8ec-3059d343eb83" {
-					t.Fatalf("move arguments = (%q, %q), unexpected", id, columnID)
+				if id != "card-id" || columnID != "a5fc3aed-6138-4e57-a8ec-3059d343eb83" || ownerID != testUser.ID {
+					t.Fatalf("move arguments = (%q, %q, %q), unexpected", id, columnID, ownerID)
 				}
 				return true, nil
 			}},
@@ -237,7 +259,7 @@ func TestMoveCard(t *testing.T) {
 		request.SetPathValue("id", "card-id")
 		response := httptest.NewRecorder()
 
-		handler.MoveCard(response, request)
+		handler.MoveCard(response, asUser(request))
 
 		if response.Code != 204 || !called {
 			t.Fatalf("status = %d, store called = %v; want 204 and true", response.Code, called)
@@ -247,14 +269,14 @@ func TestMoveCard(t *testing.T) {
 	t.Run("rejects an invalid destination column", func(t *testing.T) {
 		called := false
 		handler := CardHandler{
-			Store:    testStore{moveCard: func(string, string) (bool, error) { called = true; return true, nil }},
+			Store:    testStore{moveCard: func(string, string, string) (bool, error) { called = true; return true, nil }},
 			Validate: testValidator(),
 		}
 		request := httptest.NewRequest("POST", "/cards/card-id/move", strings.NewReader(`{"column_id":"invalid"}`))
 		request.SetPathValue("id", "card-id")
 		response := httptest.NewRecorder()
 
-		handler.MoveCard(response, request)
+		handler.MoveCard(response, asUser(request))
 
 		if called {
 			t.Fatal("store was called for an invalid destination column")
@@ -264,16 +286,30 @@ func TestMoveCard(t *testing.T) {
 
 	t.Run("returns not found when the card does not exist", func(t *testing.T) {
 		handler := CardHandler{
-			Store:    testStore{moveCard: func(string, string) (bool, error) { return false, nil }},
+			Store:    testStore{moveCard: func(string, string, string) (bool, error) { return false, nil }},
 			Validate: testValidator(),
 		}
 		request := httptest.NewRequest("POST", "/cards/card-id/move", strings.NewReader(`{"column_id":"a5fc3aed-6138-4e57-a8ec-3059d343eb83"}`))
 		request.SetPathValue("id", "card-id")
 		response := httptest.NewRecorder()
 
-		handler.MoveCard(response, request)
+		handler.MoveCard(response, asUser(request))
 
 		assertError(t, response, 404, codeCardNotFound)
+	})
+
+	t.Run("returns column not found when the destination isn't the user's", func(t *testing.T) {
+		handler := CardHandler{
+			Store:    testStore{moveCard: func(string, string, string) (bool, error) { return false, store.ErrColumnNotFound }},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("POST", "/cards/card-id/move", strings.NewReader(`{"column_id":"a5fc3aed-6138-4e57-a8ec-3059d343eb83"}`))
+		request.SetPathValue("id", "card-id")
+		response := httptest.NewRecorder()
+
+		handler.MoveCard(response, asUser(request))
+
+		assertError(t, response, 404, codeColumnNotFound)
 	})
 }
 
@@ -684,4 +720,90 @@ func TestBoardOwnership(t *testing.T) {
 
 		assertError(t, response, 500, codeInternalError)
 	})
+}
+
+func TestColumnOwnership(t *testing.T) {
+	const columnJSON = `{"id":"7d1e2f3a-0000-4000-8000-0000000000c1","board_id":"7d1e2f3a-0000-4000-8000-0000000000b1","title":"To do","position":0}`
+
+	t.Run("create passes the logged-in user to the store", func(t *testing.T) {
+		var gotOwner string
+		handler := ColumnHandler{
+			Store:    testStore{saveColumn: func(_ models.Column, ownerID string) (bool, error) { gotOwner = ownerID; return true, nil }},
+			Validate: testValidator(),
+		}
+		response := httptest.NewRecorder()
+
+		handler.CreateColumn(response, asUser(httptest.NewRequest("POST", "/columns", strings.NewReader(columnJSON))))
+
+		if response.Code != 201 || gotOwner != testUser.ID {
+			t.Fatalf("status = %d, owner = %q; want 201 and %q", response.Code, gotOwner, testUser.ID)
+		}
+	})
+
+	t.Run("create on someone else's (or a missing) board is 404", func(t *testing.T) {
+		handler := ColumnHandler{
+			Store:    testStore{saveColumn: func(models.Column, string) (bool, error) { return false, nil }},
+			Validate: testValidator(),
+		}
+		response := httptest.NewRecorder()
+
+		handler.CreateColumn(response, asUser(httptest.NewRequest("POST", "/columns", strings.NewReader(columnJSON))))
+
+		assertError(t, response, 404, codeBoardNotFound)
+	})
+
+	t.Run("list passes the logged-in user to the store", func(t *testing.T) {
+		var gotOwner string
+		handler := ColumnHandler{
+			Store: testStore{getColumns: func(_, ownerID string) ([]models.Column, error) {
+				gotOwner = ownerID
+				return []models.Column{}, nil
+			}},
+			Validate: testValidator(),
+		}
+		response := httptest.NewRecorder()
+
+		handler.ListColumns(response, asUser(httptest.NewRequest("GET", "/columns?board_id=b1", nil)))
+
+		if response.Code != 200 || gotOwner != testUser.ID {
+			t.Fatalf("status = %d, owner = %q; want 200 and %q", response.Code, gotOwner, testUser.ID)
+		}
+	})
+
+	t.Run("update that changes no rows is 404, not 200", func(t *testing.T) {
+		handler := ColumnHandler{
+			Store: testStore{
+				getColumn:    func(id, _ string) (models.Column, error) { return models.Column{ID: id}, nil },
+				updateColumn: func(models.Column, string) (bool, error) { return false, nil },
+			},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("PUT", "/columns/c1", strings.NewReader(`{"title":"Done","position":1}`))
+		request.SetPathValue("id", "c1")
+		response := httptest.NewRecorder()
+
+		handler.UpdateColumn(response, asUser(request))
+
+		assertError(t, response, 404, codeColumnNotFound)
+	})
+}
+
+func TestCreateCardOnSomeoneElsesColumnIs404(t *testing.T) {
+	var gotOwner string
+	handler := CardHandler{
+		Store: testStore{saveCard: func(_ models.Card, ownerID string) (bool, error) {
+			gotOwner = ownerID
+			return false, nil // the column isn't this user's
+		}},
+		Validate: testValidator(),
+	}
+	body := `{"id":"5e6f7a8b-0000-4000-8000-0000000000d1","column_id":"7d1e2f3a-0000-4000-8000-0000000000c1","title":"Write tests","order":0}`
+	response := httptest.NewRecorder()
+
+	handler.CreateCard(response, asUser(httptest.NewRequest("POST", "/cards", strings.NewReader(body))))
+
+	if gotOwner != testUser.ID {
+		t.Errorf("owner = %q, want %q", gotOwner, testUser.ID)
+	}
+	assertError(t, response, 404, codeColumnNotFound)
 }

@@ -35,26 +35,7 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	cardHandler := &handlers.CardHandler{
-		Store:    dbStore,
-		Validate: validate,
-	}
-
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /cards", cardHandler.CreateCard)
-	mux.HandleFunc("GET /cards", cardHandler.ListCards)
-	mux.HandleFunc("GET /cards/{id}", cardHandler.GetCard)
-	mux.HandleFunc("PUT /cards/{id}", cardHandler.UpdateCard)
-	mux.HandleFunc("POST /cards/{id}/move", cardHandler.MoveCard)
-	mux.HandleFunc("DELETE /cards/{id}", cardHandler.DeleteCard)
-
-	columnHandler := &handlers.ColumnHandler{Store: dbStore, Validate: validate}
-
-	mux.HandleFunc("POST /columns", columnHandler.CreateColumn)
-	mux.HandleFunc("GET /columns", columnHandler.ListColumns)
-	mux.HandleFunc("GET /columns/{id}", columnHandler.GetColumn)
-	mux.HandleFunc("PUT /columns/{id}", columnHandler.UpdateColumn)
-	mux.HandleFunc("DELETE /columns/{id}", columnHandler.DeleteColumn)
 
 	authHandler := &handlers.AuthHandler{Store: dbStore, Validate: validate}
 	// protected wraps a handler in RequireAuth, so only logged-in users reach it.
@@ -67,6 +48,23 @@ func main() {
 	mux.Handle("GET /boards/{id}", protected(boardHandler.GetBoard))
 	mux.Handle("PUT /boards/{id}", protected(boardHandler.UpdateBoard))
 	mux.Handle("DELETE /boards/{id}", protected(boardHandler.DeleteBoard))
+
+	columnHandler := &handlers.ColumnHandler{Store: dbStore, Validate: validate}
+
+	mux.Handle("POST /columns", protected(columnHandler.CreateColumn))
+	mux.Handle("GET /columns", protected(columnHandler.ListColumns))
+	mux.Handle("GET /columns/{id}", protected(columnHandler.GetColumn))
+	mux.Handle("PUT /columns/{id}", protected(columnHandler.UpdateColumn))
+	mux.Handle("DELETE /columns/{id}", protected(columnHandler.DeleteColumn))
+
+	cardHandler := &handlers.CardHandler{Store: dbStore, Validate: validate}
+
+	mux.Handle("POST /cards", protected(cardHandler.CreateCard))
+	mux.Handle("GET /cards", protected(cardHandler.ListCards))
+	mux.Handle("GET /cards/{id}", protected(cardHandler.GetCard))
+	mux.Handle("PUT /cards/{id}", protected(cardHandler.UpdateCard))
+	mux.Handle("POST /cards/{id}/move", protected(cardHandler.MoveCard))
+	mux.Handle("DELETE /cards/{id}", protected(cardHandler.DeleteCard))
 
 	userHandler := &handlers.UserHandler{Store: dbStore, Validate: validate}
 

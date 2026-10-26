@@ -7,24 +7,35 @@ import (
 )
 
 // #region Save Column
-func (s *PostgresStore) SaveColumn(ctx context.Context, col models.Column) error {
-
-	query := `INSERT INTO columns (id, board_id, title, position) VALUES ($1, $2, $3, $4)`
-
-	_, err := s.db.ExecContext(ctx, query, col.ID, col.BoardID, col.Title, col.Position)
-
-	return err
+// SaveColumn inserts the column only if its board belongs to ownerID. It
+// returns false (nothing inserted) if the board is missing or someone else's.
+func (s *PostgresStore) SaveColumn(ctx context.Context, col models.Column, ownerID string) (bool, error) {
+	query := `
+		INSERT INTO columns (id, board_id, title, position)
+		SELECT $1, $2, $3, $4
+		WHERE EXISTS (SELECT 1 FROM boards WHERE id = $2 AND owner_id = $5)`
+	res, err := s.db.ExecContext(ctx, query, col.ID, col.BoardID, col.Title, col.Position, ownerID)
+	if err != nil {
+		return false, err
+	}
+	rows, err := res.RowsAffected()
+	return rows > 0, err
 }
 
 //#endregion
 
 // #region Get Columns With Cards
-func (s *PostgresStore) GetColumnsWithCards(ctx context.Context, boardID string) ([]models.Column, error) {
+func (s *PostgresStore) GetColumnsWithCards(ctx context.Context, boardID, ownerID string) ([]models.Column, error) {
 	// GetColumnsWithCards performs a two-step load to construct the full board hierarchy
 
-	// 1. Fetch columns filtered by board_id
-	colQuery := `SELECT id, board_id, title, position FROM columns WHERE board_id = $1 ORDER BY position ASC`
-	colRows, err := s.db.QueryContext(ctx, colQuery, boardID)
+	// 1. Fetch the board's columns, only if the board belongs to ownerID
+	colQuery := `
+		SELECT c.id, c.board_id, c.title, c.position
+		FROM columns c
+		JOIN boards b ON b.id = c.board_id
+		WHERE c.board_id = $1 AND b.owner_id = $2
+		ORDER BY c.position ASC`
+	colRows, err := s.db.QueryContext(ctx, colQuery, boardID, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -74,10 +85,14 @@ func (s *PostgresStore) GetColumnsWithCards(ctx context.Context, boardID string)
 //#endregion
 
 // #region Get Column By Id
-func (s *PostgresStore) GetColumnByID(ctx context.Context, id string) (models.Column, error) {
-	query := `SELECT id, board_id, title, position, created_at FROM columns WHERE id = $1`
+func (s *PostgresStore) GetColumnByID(ctx context.Context, id, ownerID string) (models.Column, error) {
+	query := `
+		SELECT c.id, c.board_id, c.title, c.position, c.created_at
+		FROM columns c
+		JOIN boards b ON b.id = c.board_id
+		WHERE c.id = $1 AND b.owner_id = $2`
 	var c models.Column
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&c.ID, &c.BoardID, &c.Title, &c.Position, &c.CreatedAt)
+	err := s.db.QueryRowContext(ctx, query, id, ownerID).Scan(&c.ID, &c.BoardID, &c.Title, &c.Position, &c.CreatedAt)
 	if err == sql.ErrNoRows {
 		return models.Column{}, nil
 	}
@@ -90,13 +105,13 @@ func (s *PostgresStore) GetColumnByID(ctx context.Context, id string) (models.Co
 //#endregion
 
 // #region Update Column
-func (s *PostgresStore) UpdateColumn(ctx context.Context, col models.Column) (bool, error) {
+func (s *PostgresStore) UpdateColumn(ctx context.Context, col models.Column, ownerID string) (bool, error) {
 	query := `
-		UPDATE columns 
-		SET title = $1, position = $2 
-		WHERE id = $3
-	`
-	res, err := s.db.ExecContext(ctx, query, col.Title, col.Position, col.ID)
+		UPDATE columns c
+		SET title = $1, position = $2
+		FROM boards b
+		WHERE c.id = $3 AND b.id = c.board_id AND b.owner_id = $4`
+	res, err := s.db.ExecContext(ctx, query, col.Title, col.Position, col.ID, ownerID)
 	if err != nil {
 		return false, err
 	}
@@ -108,9 +123,12 @@ func (s *PostgresStore) UpdateColumn(ctx context.Context, col models.Column) (bo
 //#endregion
 
 // #region Delete Column
-func (s *PostgresStore) DeleteColumn(ctx context.Context, id string) (bool, error) {
-	query := `DELETE FROM columns WHERE id = $1`
-	res, err := s.db.ExecContext(ctx, query, id)
+func (s *PostgresStore) DeleteColumn(ctx context.Context, id, ownerID string) (bool, error) {
+	query := `
+		DELETE FROM columns c
+		USING boards b
+		WHERE c.id = $1 AND b.id = c.board_id AND b.owner_id = $2`
+	res, err := s.db.ExecContext(ctx, query, id, ownerID)
 	if err != nil {
 		return false, err
 	}

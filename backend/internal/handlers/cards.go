@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"kanban/internal/models"
@@ -17,6 +18,11 @@ type CardHandler struct {
 
 // #region Create Card
 func (h *CardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
 	var card models.Card
 
 	if err := json.NewDecoder(r.Body).Decode(&card); err != nil {
@@ -29,8 +35,13 @@ func (h *CardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Store.SaveCard(r.Context(), card); err != nil {
+	saved, err := h.Store.SaveCard(r.Context(), card, user.ID)
+	if err != nil {
 		writeInternalError(w, r, err)
+		return
+	}
+	if !saved {
+		writeError(w, http.StatusNotFound, codeColumnNotFound, "Column not found")
 		return
 	}
 
@@ -41,7 +52,12 @@ func (h *CardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 
 // #region List Cards
 func (h *CardHandler) ListCards(w http.ResponseWriter, r *http.Request) {
-	cards, err := h.Store.GetCards(r.Context())
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
+	cards, err := h.Store.GetCards(r.Context(), user.ID)
 	if err != nil {
 		writeInternalError(w, r, err)
 		return
@@ -54,9 +70,14 @@ func (h *CardHandler) ListCards(w http.ResponseWriter, r *http.Request) {
 
 // #region Get Card
 func (h *CardHandler) GetCard(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
 	id := r.PathValue("id")
 
-	card, err := h.Store.GetCardByID(r.Context(), id)
+	card, err := h.Store.GetCardByID(r.Context(), id, user.ID)
 	if err != nil {
 		writeInternalError(w, r, err)
 		return
@@ -73,6 +94,11 @@ func (h *CardHandler) GetCard(w http.ResponseWriter, r *http.Request) {
 
 // #region Update Card
 func (h *CardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
 	id := r.PathValue("id")
 
 	var card models.Card
@@ -86,7 +112,7 @@ func (h *CardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	success, err := h.Store.UpdateCard(r.Context(), id, card)
+	success, err := h.Store.UpdateCard(r.Context(), id, card, user.ID)
 	if err != nil {
 		writeInternalError(w, r, err)
 		return
@@ -96,7 +122,7 @@ func (h *CardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updatedCard, err := h.Store.GetCardByID(r.Context(), id)
+	updatedCard, err := h.Store.GetCardByID(r.Context(), id, user.ID)
 	if err != nil {
 		writeInternalError(w, r, err)
 		return
@@ -109,9 +135,14 @@ func (h *CardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
 
 // #region Delete Card
 func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
 	id := r.PathValue("id")
 
-	success, err := h.Store.DeleteCard(r.Context(), id)
+	success, err := h.Store.DeleteCard(r.Context(), id, user.ID)
 	if err != nil {
 		writeInternalError(w, r, err)
 		return
@@ -128,6 +159,11 @@ func (h *CardHandler) DeleteCard(w http.ResponseWriter, r *http.Request) {
 
 // #region Move Card
 func (h *CardHandler) MoveCard(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
 	var request struct {
 		ColumnID string `json:"column_id" validate:"required,uuid"`
 	}
@@ -140,7 +176,11 @@ func (h *CardHandler) MoveCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	moved, err := h.Store.MoveCard(r.Context(), r.PathValue("id"), request.ColumnID)
+	moved, err := h.Store.MoveCard(r.Context(), r.PathValue("id"), request.ColumnID, user.ID)
+	if errors.Is(err, store.ErrColumnNotFound) {
+		writeError(w, http.StatusNotFound, codeColumnNotFound, "Column not found")
+		return
+	}
 	if err != nil {
 		writeInternalError(w, r, err)
 		return

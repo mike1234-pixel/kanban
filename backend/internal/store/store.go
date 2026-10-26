@@ -13,22 +13,26 @@ var ErrEmailTaken = errors.New("email already in use")
 // ErrBoardExists is returned when a board is saved with an ID that is already in use.
 var ErrBoardExists = errors.New("board already exists")
 
+// ErrColumnNotFound is returned when a card is moved to a column that doesn't
+// exist or belongs to another user.
+var ErrColumnNotFound = errors.New("column not found")
+
 type Store interface {
 	//#region Card Operations
-	SaveCard(ctx context.Context, card models.Card) error
-	GetCards(ctx context.Context) ([]models.Card, error)
-	GetCardByID(ctx context.Context, id string) (models.Card, error)
-	UpdateCard(ctx context.Context, id string, updated models.Card) (bool, error)
-	MoveCard(ctx context.Context, id string, columnID string) (bool, error)
-	DeleteCard(ctx context.Context, id string) (bool, error)
+	SaveCard(ctx context.Context, card models.Card, ownerID string) (bool, error)
+	GetCards(ctx context.Context, ownerID string) ([]models.Card, error)
+	GetCardByID(ctx context.Context, id, ownerID string) (models.Card, error)
+	UpdateCard(ctx context.Context, id string, updated models.Card, ownerID string) (bool, error)
+	MoveCard(ctx context.Context, id, columnID, ownerID string) (bool, error)
+	DeleteCard(ctx context.Context, id, ownerID string) (bool, error)
 	//#endregion
 
 	//#region Column Operations
-	SaveColumn(ctx context.Context, col models.Column) error
-	GetColumnsWithCards(ctx context.Context, boardID string) ([]models.Column, error)
-	GetColumnByID(ctx context.Context, id string) (models.Column, error)
-	UpdateColumn(ctx context.Context, col models.Column) (bool, error)
-	DeleteColumn(ctx context.Context, id string) (bool, error)
+	SaveColumn(ctx context.Context, col models.Column, ownerID string) (bool, error)
+	GetColumnsWithCards(ctx context.Context, boardID, ownerID string) ([]models.Column, error)
+	GetColumnByID(ctx context.Context, id, ownerID string) (models.Column, error)
+	UpdateColumn(ctx context.Context, col models.Column, ownerID string) (bool, error)
+	DeleteColumn(ctx context.Context, id, ownerID string) (bool, error)
 	//#endregion
 
 	//#region Board operations

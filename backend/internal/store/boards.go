@@ -59,7 +59,7 @@ func (s *PostgresStore) GetBoardByID(ctx context.Context, id, ownerID string) (m
 	}
 
 	// 2. Load nested Columns with Cards
-	cols, err := s.GetColumnsWithCards(ctx, b.ID)
+	cols, err := s.GetColumnsWithCards(ctx, b.ID, ownerID)
 	if err != nil {
 		return models.Board{}, err
 	}
