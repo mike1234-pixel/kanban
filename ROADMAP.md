@@ -15,3 +15,23 @@ Work through these in order. Don't add several at once.
 11. **Testing**
 12. **Docker + deployment**
 13. **Production architecture:** includes service-to-service communication with gRPC (HTTP/2, Protocol Buffers, `.proto` contracts) vs REST. Exercise: move the notification worker (step 8) into its own service and call it over gRPC.
+
+## Schedule
+
+Goal: finish by the end of April 2027, about two weeks per step. Step sizes vary, so dates will shift; April is buffer.
+
+| Dates | Step |
+| --- | --- |
+| 21 Sep – 26 Oct 2026 | 1–3 ✅ |
+| 27 Oct – 1 Nov | Revision: step 3, SQL, Go weak spots |
+| 2 – 15 Nov | 4. Transactions |
+| 16 – 29 Nov | 5. Concurrency |
+| 30 Nov – 13 Dec | 6. Database tooling + migrations |
+| 14 Dec – 3 Jan 2027 | 7. WebSockets (3 weeks, includes holidays) |
+| 4 – 17 Jan | 8. Background workers |
+| 18 – 31 Jan | 9. Caching / Redis |
+| 1 – 14 Feb | 10. Observability |
+| 15 – 28 Feb | 11. Testing |
+| 1 – 14 Mar | 12. Docker + deployment |
+| 15 – 28 Mar | 13. Production architecture |
+| April | Buffer and full revision |
