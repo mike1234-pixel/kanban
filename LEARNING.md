@@ -194,9 +194,9 @@ The database enforces what must never happen, even if the Go code has a bug.
 
 Middleware is code that runs before a handler, on every request to that handler. In Go it's a function that takes a handler and returns a new handler that wraps it: `func(next http.Handler) http.Handler`. The new handler can do some work first, then call `next.ServeHTTP(w, r)` to run the original handler, or skip that call to stop the request there.
 
-`RequireAuth` (`handlers/middleware.go`) uses this to protect routes. When a request for `GET /me` arrives, the router passes it to `RequireAuth` first. `RequireAuth` reads the `session` cookie, hashes its token, and calls `GetSessionUser`. If there's no cookie, or the query finds no unexpired session, it writes `401 UNAUTHENTICATED` and returns. Because it never calls `next`, the `Me` handler doesn't run.
+`RequireAuth` (`handlers/middleware.go`) uses this to protect routes. `Me` is not part of it: it's an ordinary handler that returns the logged-in user's details, which a frontend can call to check whether someone is logged in. When a request for `GET /me` arrives, the router passes it to `RequireAuth` first. `RequireAuth` reads the `session` cookie, hashes its token, and calls `GetSessionUser`. If there's no cookie, or the query finds no unexpired session, it writes `401 UNAUTHENTICATED` and returns. Because it never calls `next`, the `Me` handler doesn't run.
 
-If the session is valid, the handler still needs to know who the user is. `RequireAuth` passes that on through the request's context: `context.WithValue` creates a new context holding the user, `r.WithContext` creates a copy of the request carrying that context, and `next` is called with the copy. `Me` then reads the user back with `userFromContext(r.Context())`.
+If the session is valid, the handler needs to know who the user is. `RequireAuth` passes that on through the request's context: `context.WithValue` creates a new context holding the user, `r.WithContext` creates a copy of the request carrying that context, and `next` is called with the copy. `Me` then reads the user back with `userFromContext(r.Context())`.
 
 The route is protected by wrapping it when it's registered:
 
@@ -204,9 +204,9 @@ The route is protected by wrapping it when it's registered:
 mux.Handle("GET /me", auth.RequireAuth(http.HandlerFunc(auth.Me)))
 ```
 
-Because the check lives in one place, it's written once, a new route can't skip it by accident, and handlers only deal with their own job. If `userFromContext` finds no user, the route was registered without `RequireAuth`. That's a bug in the code, not a problem with the request, so `Me` returns a 500.
+The check is written once, a new route can't skip it by accident, and handlers keep their own job. If `userFromContext` finds no user, the route was registered without `RequireAuth`. That's a bug in the code, so `Me` returns a 500.
 
-Context values should only hold data about the current request, such as the user or a request ID. The key's type is unexported, so no other package can read or overwrite the value.
+Context values should only hold data about the current request, such as the user. The key's type is unexported, so other packages can't read or overwrite it.
 
 Not yet covered: ownership checks (403 vs 404).
 
