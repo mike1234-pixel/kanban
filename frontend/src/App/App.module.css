@@ -34,6 +34,8 @@
 .userInfo strong { font-size: 10.5px; font-weight: 600; }
 .userInfo span { color: #a0a4ae; font-size: 9px; }
 .more { margin-left: auto; color: #9297a5; font-weight: 700; }
+.logoutButton { margin-left: auto; padding: 4px 8px; border: 1px solid #e3e4ea; border-radius: 5px; background: #fff; color: #6b7080; cursor: pointer; font-size: 9px; font-weight: 600; }
+.logoutButton:hover { border-color: #7562d5; color: #7562d5; }
 .mainArea { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .topbar { height: 64px; padding: 0 38px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eceef2; background: rgba(255,255,255,.75); }
 .breadcrumb { display: flex; align-items: center; gap: 11px; color: #a0a4b0; font-size: 11px; }

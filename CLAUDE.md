@@ -136,7 +136,7 @@ Working on: step 3 complete; step 4 (transactions) next.
 - Done: logout. `POST /logout` deletes the session and clears the cookie; always 204.
 - Done: ownership checks. `boards.owner_id`; every board, column and card query filters by the logged-in user (columns and cards via joins to `boards`); someone else's resource returns 404. All board, column and card routes are behind `RequireAuth`.
 - Step 3 is complete. Test login: `ada@example.com` / `correct-horse` (owns the existing boards).
-- The frontend has no login page yet, so it gets 401s from the API. A minimal login page is planned as a separate step.
+- The frontend has a minimal login page (`AuthGate` checks `GET /me`; `LoginPage`; Log out in the sidebar). Use Chrome or Firefox locally: the `Secure` cookie isn't sent over `http://localhost` in Safari.
 - Next: step 4, transactions.
 - Note: `MoveCard` already runs in a transaction and writes to `card_movements` (step 4 groundwork).
 

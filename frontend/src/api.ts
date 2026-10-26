@@ -21,6 +21,12 @@ export type Board = {
   columns: Column[]
 }
 
+export type User = {
+  id: string
+  name: string
+  email: string
+}
+
 // ApiError carries the API's error code so callers can branch on it,
 // e.g. `err instanceof ApiError && err.code === 'BOARD_NOT_FOUND'`.
 export class ApiError extends Error {
@@ -57,6 +63,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // me returns the logged-in user, or null if there's no valid session (401).
+  me: async () => {
+    try {
+      return await request<User>('/me')
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return null
+      throw error
+    }
+  },
+  login: (email: string, password: string) => request<User>('/login', {
+    method: 'POST', body: JSON.stringify({ email, password }),
+  }),
+  logout: () => request<void>('/logout', { method: 'POST' }),
   boards: () => request<Board[]>('/boards'),
   board: (id: string) => request<Board>(`/boards/${id}`),
   createBoard: (title: string) => request<Board>('/boards', {

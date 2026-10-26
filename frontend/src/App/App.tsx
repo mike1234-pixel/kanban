@@ -6,9 +6,12 @@ import Icon from '../Icon'
 import Modal from '../Modal'
 import TitleEditor from '../TitleEditor'
 import { useBoardWorkspace } from './AppHook'
+import type { User } from '../api'
 import styles from './App.module.css'
 
-const App = () => {
+type AppProps = { user: User; onLogout: () => void }
+
+const App = ({ user, onLogout }: AppProps) => {
   const workspace = useBoardWorkspace()
   const {
     board, boardQuery, boards, boardsQuery, cardCount, closeModal, columns,
@@ -49,9 +52,9 @@ const App = () => {
           </div>
         </div>
         <div className={styles.sidebarBottom}>
-          <div className={styles.avatar}>MT</div>
-          <div className={styles.userInfo}><strong>My workspace</strong><span>Personal plan</span></div>
-          <span className={styles.more}>···</span>
+          <div className={styles.avatar}>{user.name.slice(0, 2).toUpperCase()}</div>
+          <div className={styles.userInfo}><strong>{user.name}</strong><span>{user.email}</span></div>
+          <button type="button" className={styles.logoutButton} onClick={onLogout}>Log out</button>
         </div>
       </aside>
 
