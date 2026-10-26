@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"kanban/internal/models"
@@ -43,5 +44,16 @@ func (h *AuthHandler) RequireAuth(next http.Handler) http.Handler {
 // ok is false if the request didn't go through RequireAuth.
 func userFromContext(ctx context.Context) (models.User, bool) {
 	user, ok := ctx.Value(userKey).(models.User)
+	return user, ok
+}
+
+// currentUser returns the logged-in user for a handler behind RequireAuth.
+// If there's no user, the route wasn't wrapped in RequireAuth: that's a bug,
+// so it writes a 500 and returns ok = false, and the handler should return.
+func currentUser(w http.ResponseWriter, r *http.Request) (models.User, bool) {
+	user, ok := userFromContext(r.Context())
+	if !ok {
+		writeInternalError(w, r, errors.New("handler called without RequireAuth"))
+	}
 	return user, ok
 }

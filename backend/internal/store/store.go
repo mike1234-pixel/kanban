@@ -33,10 +33,10 @@ type Store interface {
 
 	//#region Board operations
 	SaveBoard(ctx context.Context, board models.Board) (time.Time, error)
-	GetBoards(ctx context.Context) ([]models.Board, error)
-	GetBoardByID(ctx context.Context, id string) (models.Board, error)
+	GetBoards(ctx context.Context, ownerID string) ([]models.Board, error)
+	GetBoardByID(ctx context.Context, id, ownerID string) (models.Board, error)
 	UpdateBoard(ctx context.Context, board models.Board) (bool, error)
-	DeleteBoard(ctx context.Context, id string) (bool, error)
+	DeleteBoard(ctx context.Context, id, ownerID string) (bool, error)
 	//#endregion
 
 	//#region User operations

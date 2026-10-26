@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
@@ -115,10 +114,8 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 // #region Me
 // Me returns the logged-in user. It must be wrapped in RequireAuth.
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
-	user, ok := userFromContext(r.Context())
+	user, ok := currentUser(w, r)
 	if !ok {
-		// Only possible if the route was registered without RequireAuth: a bug, not a client error.
-		writeInternalError(w, r, errors.New("Me called without RequireAuth"))
 		return
 	}
 

@@ -23,7 +23,7 @@ import (
 type testStore struct {
 	store.Store
 	saveBoard  func(models.Board) error
-	getBoard   func(string) (models.Board, error)
+	getBoard   func(id, ownerID string) (models.Board, error)
 	getColumns func(string) ([]models.Column, error)
 	moveCard   func(string, string) (bool, error)
 	saveUser   func(models.User) error
@@ -34,6 +34,20 @@ type testStore struct {
 	createSession  func(tokenHash, userID string) error
 	getSessionUser func(tokenHash string) (models.User, error)
 	deleteSession  func(tokenHash string) error
+
+	updateBoard func(models.Board) (bool, error)
+}
+
+func (s testStore) UpdateBoard(_ context.Context, board models.Board) (bool, error) {
+	return s.updateBoard(board)
+}
+
+// testUser is the logged-in user for handlers behind RequireAuth.
+var testUser = models.User{ID: "9a1b2c3d-0000-4000-8000-000000000001", Name: "Ada", Email: "ada@example.com"}
+
+// asUser returns a copy of r whose context holds testUser, as RequireAuth would.
+func asUser(r *http.Request) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), userKey, testUser))
 }
 
 func (s testStore) DeleteSession(_ context.Context, tokenHash string) error {
@@ -71,8 +85,8 @@ func (s testStore) SaveBoard(_ context.Context, board models.Board) (time.Time, 
 // testCreatedAt stands in for the timestamp the database assigns on insert.
 var testCreatedAt = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 
-func (s testStore) GetBoardByID(_ context.Context, id string) (models.Board, error) {
-	return s.getBoard(id)
+func (s testStore) GetBoardByID(_ context.Context, id, ownerID string) (models.Board, error) {
+	return s.getBoard(id, ownerID)
 }
 
 func (s testStore) GetColumnsWithCards(_ context.Context, boardID string) ([]models.Column, error) {
@@ -103,7 +117,7 @@ func TestCreateBoard(t *testing.T) {
 		request := httptest.NewRequest("POST", "/boards", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","title":"Sprint planning","columns":[]}`))
 		response := httptest.NewRecorder()
 
-		handler.CreateBoard(response, request)
+		handler.CreateBoard(response, asUser(request))
 
 		if response.Code != 201 || !called {
 			t.Fatalf("status = %d, store called = %v; want 201 and true", response.Code, called)
@@ -125,7 +139,7 @@ func TestCreateBoard(t *testing.T) {
 		request := httptest.NewRequest("POST", "/boards", strings.NewReader("{"))
 		response := httptest.NewRecorder()
 
-		handler.CreateBoard(response, request)
+		handler.CreateBoard(response, asUser(request))
 
 		assertError(t, response, 400, codeInvalidJSON)
 	})
@@ -139,7 +153,7 @@ func TestCreateBoard(t *testing.T) {
 		request := httptest.NewRequest("POST", "/boards", strings.NewReader(`{"id":"not-a-uuid","title":"x"}`))
 		response := httptest.NewRecorder()
 
-		handler.CreateBoard(response, request)
+		handler.CreateBoard(response, asUser(request))
 
 		if called {
 			t.Fatal("store was called for an invalid board")
@@ -155,7 +169,7 @@ func TestCreateBoard(t *testing.T) {
 		request := httptest.NewRequest("POST", "/boards", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","title":"Sprint planning"}`))
 		response := httptest.NewRecorder()
 
-		handler.CreateBoard(response, request)
+		handler.CreateBoard(response, asUser(request))
 
 		assertError(t, response, 409, codeBoardExists)
 	})
@@ -168,7 +182,7 @@ func TestCreateBoard(t *testing.T) {
 		request := httptest.NewRequest("POST", "/boards", strings.NewReader(`{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","title":"Sprint planning"}`))
 		response := httptest.NewRecorder()
 
-		handler.CreateBoard(response, request)
+		handler.CreateBoard(response, asUser(request))
 
 		if strings.Contains(response.Body.String(), "database unavailable") {
 			t.Fatalf("response leaked internal error: %s", response.Body.String())
@@ -179,11 +193,11 @@ func TestCreateBoard(t *testing.T) {
 
 func TestGetBoard(t *testing.T) {
 	handler := BoardHandler{
-		Store: testStore{getBoard: func(id string) (models.Board, error) {
-			if id != "board-id" {
-				t.Fatalf("requested id = %q, want board-id", id)
+		Store: testStore{getBoard: func(id, ownerID string) (models.Board, error) {
+			if id != "board-id" || ownerID != testUser.ID {
+				t.Fatalf("requested id = %q, owner = %q; want board-id and the logged-in user", id, ownerID)
 			}
-			return models.Board{}, nil
+			return models.Board{}, nil // "not found" and "not yours" look the same
 		}},
 		Validate: testValidator(),
 	}
@@ -191,7 +205,7 @@ func TestGetBoard(t *testing.T) {
 	request.SetPathValue("id", "board-id")
 	response := httptest.NewRecorder()
 
-	handler.GetBoard(response, request)
+	handler.GetBoard(response, asUser(request))
 
 	assertError(t, response, 404, codeBoardNotFound)
 }
@@ -606,6 +620,67 @@ func TestLogout(t *testing.T) {
 		response := logout(testStore{
 			deleteSession: func(string) error { return errors.New("database unavailable") },
 		}, &http.Cookie{Name: sessionCookieName, Value: "real-token"})
+
+		assertError(t, response, 500, codeInternalError)
+	})
+}
+
+func TestBoardOwnership(t *testing.T) {
+	const otherUserID = "9a1b2c3d-0000-4000-8000-000000000002"
+
+	t.Run("create sets the owner from the session, not the body", func(t *testing.T) {
+		var saved models.Board
+		handler := BoardHandler{
+			Store:    testStore{saveBoard: func(board models.Board) error { saved = board; return nil }},
+			Validate: testValidator(),
+		}
+		body := `{"id":"4c85d3f2-e917-4a3f-929a-11b02499a33f","title":"Hack","owner_id":"` + otherUserID + `"}`
+		request := httptest.NewRequest("POST", "/boards", strings.NewReader(body))
+		response := httptest.NewRecorder()
+
+		handler.CreateBoard(response, asUser(request))
+
+		if response.Code != 201 {
+			t.Fatalf("status = %d, want 201", response.Code)
+		}
+		if saved.OwnerID != testUser.ID {
+			t.Errorf("owner = %q, want the logged-in user %q", saved.OwnerID, testUser.ID)
+		}
+		if strings.Contains(response.Body.String(), "owner_id") {
+			t.Errorf("response includes owner_id: %s", response.Body.String())
+		}
+	})
+
+	t.Run("update filters by the logged-in owner", func(t *testing.T) {
+		var updated models.Board
+		handler := BoardHandler{
+			Store: testStore{
+				getBoard: func(id, _ string) (models.Board, error) {
+					return models.Board{ID: id, Title: "Old title"}, nil // like the real store: OwnerID not loaded
+				},
+				updateBoard: func(board models.Board) (bool, error) { updated = board; return true, nil },
+			},
+			Validate: testValidator(),
+		}
+		request := httptest.NewRequest("PUT", "/boards/board-id", strings.NewReader(`{"title":"New title"}`))
+		request.SetPathValue("id", "board-id")
+		response := httptest.NewRecorder()
+
+		handler.UpdateBoard(response, asUser(request))
+
+		if response.Code != 200 {
+			t.Fatalf("status = %d, want 200", response.Code)
+		}
+		if updated.OwnerID != testUser.ID {
+			t.Errorf("UpdateBoard owner = %q, want %q (an empty owner matches no rows)", updated.OwnerID, testUser.ID)
+		}
+	})
+
+	t.Run("a handler without RequireAuth is a server error", func(t *testing.T) {
+		handler := BoardHandler{Store: testStore{}, Validate: testValidator()}
+		response := httptest.NewRecorder()
+
+		handler.ListBoards(response, httptest.NewRequest("GET", "/boards", nil)) // no asUser
 
 		assertError(t, response, 500, codeInternalError)
 	})

@@ -18,6 +18,11 @@ type BoardHandler struct {
 
 // #region Create Board
 func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
 	var board models.Board
 
 	if err := json.NewDecoder(r.Body).Decode(&board); err != nil {
@@ -29,6 +34,8 @@ func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
+
+	board.OwnerID = user.ID
 
 	createdAt, err := h.Store.SaveBoard(r.Context(), board)
 	if err != nil {
@@ -48,7 +55,12 @@ func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) {
 
 // #region List Boards
 func (h *BoardHandler) ListBoards(w http.ResponseWriter, r *http.Request) {
-	boards, err := h.Store.GetBoards(r.Context())
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
+	boards, err := h.Store.GetBoards(r.Context(), user.ID)
 	if err != nil {
 		writeInternalError(w, r, err)
 		return
@@ -61,9 +73,14 @@ func (h *BoardHandler) ListBoards(w http.ResponseWriter, r *http.Request) {
 
 // #region Get Board
 func (h *BoardHandler) GetBoard(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
 	id := r.PathValue("id")
 
-	board, err := h.Store.GetBoardByID(r.Context(), id)
+	board, err := h.Store.GetBoardByID(r.Context(), id, user.ID)
 	if err != nil {
 		writeInternalError(w, r, err)
 		return
@@ -81,13 +98,18 @@ func (h *BoardHandler) GetBoard(w http.ResponseWriter, r *http.Request) {
 
 // #region Update Board
 func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
 	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, codeBoardIDRequired, "Board ID is required")
 		return
 	}
 
-	existingBoard, err := h.Store.GetBoardByID(r.Context(), id)
+	existingBoard, err := h.Store.GetBoardByID(r.Context(), id, user.ID)
 	if err != nil {
 		writeInternalError(w, r, err)
 		return
@@ -112,6 +134,7 @@ func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	existingBoard.Title = payload.Title
+	existingBoard.OwnerID = user.ID // GetBoardByID doesn't load it; UpdateBoard filters on it
 
 	updated, err := h.Store.UpdateBoard(r.Context(), existingBoard)
 	if err != nil {
@@ -130,9 +153,14 @@ func (h *BoardHandler) UpdateBoard(w http.ResponseWriter, r *http.Request) {
 
 // #region Delete Board
 func (h *BoardHandler) DeleteBoard(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
 	id := r.PathValue("id")
 
-	deleted, err := h.Store.DeleteBoard(r.Context(), id)
+	deleted, err := h.Store.DeleteBoard(r.Context(), id, user.ID)
 	if err != nil {
 		writeInternalError(w, r, err)
 		return

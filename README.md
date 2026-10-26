@@ -30,14 +30,25 @@ cd backend
 docker compose up -d
 ```
 
-The API expects the `boards`, `columns`, `cards`, and `users` tables to exist. The current repository does not include database migrations. For a fresh local database, create the tables with:
+The API expects the `users`, `boards`, `columns`, `cards` and `sessions` tables to exist (create them in this order: later tables reference earlier ones). The current repository does not include database migrations. For a fresh local database, create the tables with:
 
 ```sql
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(254) NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE boards (
   id UUID PRIMARY KEY,
   title VARCHAR(100) NOT NULL,
+  owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX boards_owner_id_idx ON boards (owner_id);
 
 CREATE TABLE columns (
   id UUID PRIMARY KEY,
@@ -52,14 +63,7 @@ CREATE TABLE cards (
   column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
   title VARCHAR(150) NOT NULL,
   description TEXT NOT NULL DEFAULT '',
-  "order" INTEGER NOT NULL CHECK ("order" >= 0)
-);
-
-CREATE TABLE users (
-  id UUID PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  email VARCHAR(254) NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
+  "order" INTEGER NOT NULL CHECK ("order" >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

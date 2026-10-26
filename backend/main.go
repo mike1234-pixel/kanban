@@ -56,13 +56,17 @@ func main() {
 	mux.HandleFunc("PUT /columns/{id}", columnHandler.UpdateColumn)
 	mux.HandleFunc("DELETE /columns/{id}", columnHandler.DeleteColumn)
 
+	authHandler := &handlers.AuthHandler{Store: dbStore, Validate: validate}
+	// protected wraps a handler in RequireAuth, so only logged-in users reach it.
+	protected := func(h http.HandlerFunc) http.Handler { return authHandler.RequireAuth(h) }
+
 	boardHandler := &handlers.BoardHandler{Store: dbStore, Validate: validate}
 
-	mux.HandleFunc("POST /boards", boardHandler.CreateBoard)
-	mux.HandleFunc("GET /boards", boardHandler.ListBoards)
-	mux.HandleFunc("GET /boards/{id}", boardHandler.GetBoard)
-	mux.HandleFunc("PUT /boards/{id}", boardHandler.UpdateBoard)
-	mux.HandleFunc("DELETE /boards/{id}", boardHandler.DeleteBoard)
+	mux.Handle("POST /boards", protected(boardHandler.CreateBoard))
+	mux.Handle("GET /boards", protected(boardHandler.ListBoards))
+	mux.Handle("GET /boards/{id}", protected(boardHandler.GetBoard))
+	mux.Handle("PUT /boards/{id}", protected(boardHandler.UpdateBoard))
+	mux.Handle("DELETE /boards/{id}", protected(boardHandler.DeleteBoard))
 
 	userHandler := &handlers.UserHandler{Store: dbStore, Validate: validate}
 
@@ -72,11 +76,9 @@ func main() {
 	mux.HandleFunc("PUT /users/{id}", userHandler.UpdateUser)
 	mux.HandleFunc("DELETE /users/{id}", userHandler.DeleteUser)
 
-	authHandler := &handlers.AuthHandler{Store: dbStore, Validate: validate}
-
 	mux.HandleFunc("POST /login", authHandler.Login)
 	mux.HandleFunc("POST /logout", authHandler.Logout)
-	mux.Handle("GET /me", authHandler.RequireAuth(http.HandlerFunc(authHandler.Me)))
+	mux.Handle("GET /me", protected(authHandler.Me))
 
 	fmt.Println("Server running on http://localhost:8080")
 

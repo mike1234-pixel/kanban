@@ -8,6 +8,9 @@ type Board struct {
 	Title     string    `json:"title" validate:"required,min=3,max=100"`
 	Columns   []Column  `json:"columns" validate:"dive"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
+
+	// OwnerID is set from the logged-in user, never from the request body.
+	OwnerID string `json:"-"`
 }
 
 //#endregion
