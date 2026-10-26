@@ -378,3 +378,26 @@ It adds the user to the request's context with `context.WithValue`, and passes o
 
 It's written once, it can't be forgotten on a new route, and handlers keep their one job.
 </details>
+
+### Logout
+
+**50.** What are the two halves of logout, and which one actually logs the user out?
+
+<details><summary>Answer</summary>
+
+Deleting the session row (server) and clearing the cookie (browser). Deleting the row is what logs them out: the token then matches nothing.
+</details>
+
+**51.** Why is logout `POST`, not `GET`?
+
+<details><summary>Answer</summary>
+
+A `GET` should never change anything. Browsers, link previews and other sites can send `GET` requests on their own.
+</details>
+
+**52.** Why does logout return `204` even when there's no cookie or session?
+
+<details><summary>Answer</summary>
+
+The result is the same either way: logged out. That makes it idempotent.
+</details>

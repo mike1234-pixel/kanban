@@ -208,6 +208,16 @@ The check is written once, a new route can't skip it by accident, and handlers k
 
 Context values should only hold data about the current request, such as the user. The key's type is unexported, so other packages can't read or overwrite it.
 
+### Logout
+
+Logging out has a server half and a browser half. `POST /logout` deletes the session row (`DELETE FROM sessions WHERE token_hash = $1`), then sends `Set-Cookie: session=; Max-Age=0` so the browser deletes the cookie. The server half is the one that matters: once the row is gone, the token matches nothing and `RequireAuth` returns 401, even if a copy of the cookie is sent again. Clearing the cookie only stops the browser sending a token that no longer works.
+
+Logout always returns `204`, with or without a cookie, because the result is the same either way. That makes it idempotent. It isn't wrapped in `RequireAuth`, so a user whose session has already expired still gets their cookie cleared.
+
+It uses `POST`, not `GET`, because a `GET` should never change anything: browsers, link previews and other sites can trigger `GET` requests on their own. `DELETE /session` would also be valid REST, but `POST /logout` pairs with `POST /login`, and the session ID can't go in a URL anyway.
+
+In Go, `MaxAge: -1` is what sends `Max-Age=0`, because `MaxAge: 0` means "don't send one". The cookie's `Path` must match the original, or the browser won't delete it.
+
 Not yet covered: ownership checks (403 vs 404).
 
 Go syntax lives in `LEARNING_GO.md`.
