@@ -127,14 +127,17 @@ Work through the roadmap in order, one step at a time:
 
 <!-- Update this as you progress -->
 
-Working on: step 3, authentication / authorization.
+Working on: step 3 complete; step 4 (transactions) next.
 
 - Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates).
 - Done: password hashing with bcrypt. `POST /users` requires a password (8–72 characters) and stores only its hash in `users.password_hash`; tested live.
 - Done: sessions + cookies. `POST /login` sets an `HttpOnly`, `Secure`, `SameSite=Lax` `session` cookie; `sessions` stores only the token's SHA-256 (`hashToken` in `handlers/auth.go`). Nothing reads the cookie yet.
 - Done: auth middleware. `RequireAuth` (`handlers/middleware.go`) protects `GET /me`; handlers read the user with `userFromContext`. Board routes aren't protected yet (the frontend has no login).
 - Done: logout. `POST /logout` deletes the session and clears the cookie; always 204.
-- Next: ownership checks (403 vs 404).
+- Done: ownership checks. `boards.owner_id`; every board, column and card query filters by the logged-in user (columns and cards via joins to `boards`); someone else's resource returns 404. All board, column and card routes are behind `RequireAuth`.
+- Step 3 is complete. Test login: `ada@example.com` / `correct-horse` (owns the existing boards).
+- The frontend has no login page yet, so it gets 401s from the API. A minimal login page is planned as a separate step.
+- Next: step 4, transactions.
 - Note: `MoveCard` already runs in a transaction and writes to `card_movements` (step 4 groundwork).
 
 ## Commands

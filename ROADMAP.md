@@ -4,7 +4,7 @@ Work through these in order. Don't add several at once.
 
 1. **CRUD** ✅
 2. **HTTP fundamentals:** status codes, JSON encode/decode, validation, path/query params, consistent errors, Content-Type, request lifecycle, `context.Context` ✅
-3. **Authentication / authorization:** users, password hashing (bcrypt or Argon2id), sessions + cookies (sessions before JWTs), auth middleware, ownership checks (403 vs 404), database constraints
+3. **Authentication / authorization:** users, password hashing (bcrypt or Argon2id), sessions + cookies (sessions before JWTs), auth middleware, ownership checks (403 vs 404), database constraints ✅
 4. **Transactions:** a dedicated MoveCard operation that updates the card's column and writes a movement-history row in one transaction (`BeginTx` / `Commit` / `Rollback`)
 5. **Concurrency:** race conditions (two users moving the same card), `SELECT ... FOR UPDATE`, isolation levels, optimistic vs pessimistic concurrency, goroutines, mutexes, channels
 6. **Database tooling:** what `database/sql` boilerplate costs, then the alternatives: sqlx (maps SQL results into structs), sqlc (generates Go code from SQL), ORMs (generate SQL from Go code). Convert one store file to sqlc and compare. Plus **migrations**: numbered SQL files (e.g. with goose or golang-migrate) that build every database the same way, replacing the hand-run SQL in `README.md` and preventing schema drift.

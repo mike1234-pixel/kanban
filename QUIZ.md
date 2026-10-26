@@ -401,3 +401,33 @@ A `GET` should never change anything. Browsers, link previews and other sites ca
 
 The result is the same either way: logged out. That makes it idempotent.
 </details>
+
+### Ownership checks (403 vs 404)
+
+**53.** What's the difference between authentication and authorization?
+
+<details><summary>Answer</summary>
+
+Authentication: who are you? Authorization: are you allowed to do this, to this particular thing?
+</details>
+
+**54.** Why does Bo get `404`, not `403`, for Ada's board?
+
+<details><summary>Answer</summary>
+
+`403` would confirm the board exists, which leaks information. `404` makes "not yours" look the same as "doesn't exist".
+</details>
+
+**55.** Where must the owner of a new board come from?
+
+<details><summary>Answer</summary>
+
+The session (the logged-in user), never the request body.
+</details>
+
+**56.** Columns and cards have no `owner_id`. How are they checked?
+
+<details><summary>Answer</summary>
+
+Their queries join up to the board (`cards → columns → boards`) and check `boards.owner_id`.
+</details>

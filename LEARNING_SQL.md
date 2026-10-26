@@ -139,6 +139,36 @@ Adding `WHERE s.token_hash = $1` keeps only the row for one token. That is `GetS
 - A row with no match is left out of the result. This is called an inner join, and it's what `JOIN` means on its own.
 - The `ON` condition is usually the foreign key: `sessions.user_id REFERENCES users(id)`.
 
+### Writes that check another table
+
+These let one statement both check ownership and write, so there's no separate "check, then write" step.
+
+**`INSERT … SELECT … WHERE EXISTS`** inserts a row only if a condition holds:
+
+```sql
+INSERT INTO columns (id, board_id, title, position)
+SELECT $1, $2, $3, $4
+WHERE EXISTS (SELECT 1 FROM boards WHERE id = $2 AND owner_id = $5)
+```
+
+The `SELECT` produces one row (the values) if the `EXISTS` is true, and no rows otherwise. No rows means nothing is inserted, and `RowsAffected()` is 0.
+
+**`EXISTS (subquery)`** is true if the subquery returns at least one row. `SELECT 1` is a convention: the value doesn't matter, only whether a row exists. `SELECT EXISTS (…)` returns that true/false as a value you can `Scan` into a Go `bool`.
+
+**`UPDATE … FROM`** and **`DELETE … USING`** join another table into the write:
+
+```sql
+UPDATE columns c SET title = $1
+FROM boards b
+WHERE c.id = $2 AND b.id = c.board_id AND b.owner_id = $3
+
+DELETE FROM columns c
+USING boards b
+WHERE c.id = $1 AND b.id = c.board_id AND b.owner_id = $2
+```
+
+Only rows that match the join and the `WHERE` are updated or deleted.
+
 ## Performance
 
 ### Indexes

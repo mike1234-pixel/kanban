@@ -218,6 +218,18 @@ It uses `POST`, not `GET`, because a `GET` should never change anything: browser
 
 In Go, `MaxAge: -1` is what sends `Max-Age=0`, because `MaxAge: 0` means "don't send one". The cookie's `Path` must match the original, or the browser won't delete it.
 
-Not yet covered: ownership checks (403 vs 404).
+### Ownership checks (403 vs 404)
+
+Authentication answers "who are you?"; authorization answers "may you do this, to this thing?". Being logged in isn't enough: Bo must not read or change Ada's boards, even if he knows their IDs.
+
+Each board has an `owner_id`. Every query includes the logged-in user, taken from the session through `currentUser`, never from the request body. `GET /boards/b1` runs `WHERE id = $1 AND owner_id = $2`. If Bo asks for Ada's board, that matches no rows, exactly as if the board didn't exist, so he gets `404 BOARD_NOT_FOUND`. Updates and deletes do the same with `RowsAffected() == 0`.
+
+Columns and cards have no owner of their own, so their queries join up to the board: `cards → columns → boards`, checking `boards.owner_id`. Creating one uses `INSERT … SELECT … WHERE EXISTS (…)`, which inserts nothing unless the parent board or column is yours. Updating a card checks both its current column and its new one, so a card can't be moved onto someone else's board.
+
+The response for something that exists but isn't yours is `404`, not `403`. A `403 Forbidden` would confirm the resource exists, which leaks information in the same way as user enumeration. `403` is for when the user may know the thing exists but not do this action, such as a read-only shared board. This app has no sharing, so it always uses `404`.
+
+Putting the check inside the SQL, rather than loading the row and comparing owners in Go, means one query and nothing to forget.
+
+Step 3 complete.
 
 Go syntax lives in `LEARNING_GO.md`.

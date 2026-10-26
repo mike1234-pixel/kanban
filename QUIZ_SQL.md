@@ -141,25 +141,48 @@ Combines rows from two tables in one query, matching them on a condition (e.g. `
 An alias: a short name for the table, so `s.user_id` means `sessions.user_id`.
 </details>
 
+### Writes that check another table
+
+**18.** What does `INSERT … SELECT … WHERE EXISTS (…)` do when the `EXISTS` is false?
+
+<details><summary>Answer</summary>
+
+Inserts nothing: the `SELECT` produces no rows. `RowsAffected()` is 0.
+</details>
+
+**19.** What does `EXISTS (subquery)` return, and why is it often written `SELECT 1`?
+
+<details><summary>Answer</summary>
+
+True if the subquery returns at least one row. The selected value doesn't matter, only whether a row exists, so `1` is a placeholder.
+</details>
+
+**20.** How do you join another table into an `UPDATE` or a `DELETE` in Postgres?
+
+<details><summary>Answer</summary>
+
+`UPDATE … FROM other_table WHERE …` and `DELETE FROM … USING other_table WHERE …`.
+</details>
+
 ## Performance
 
 ### Indexes
 
-**18.** What is an index for?
+**21.** What is an index for?
 
 <details><summary>Answer</summary>
 
 Finding rows by a column's value without reading every row. It's a sorted copy of that column's values, each with its row's location.
 </details>
 
-**19.** Does a foreign key column get an index automatically?
+**22.** Does a foreign key column get an index automatically?
 
 <details><summary>Answer</summary>
 
 No. `PRIMARY KEY` and `UNIQUE` do; a foreign key like `cards.column_id` doesn't, so you add one with `CREATE INDEX`.
 </details>
 
-**20.** What's the trade-off of adding an index?
+**23.** What's the trade-off of adding an index?
 
 <details><summary>Answer</summary>
 
@@ -168,28 +191,28 @@ Faster reads, but slightly slower writes and more storage.
 
 ### `EXPLAIN`
 
-**21.** What does `EXPLAIN` show?
+**24.** What does `EXPLAIN` show?
 
 <details><summary>Answer</summary>
 
 How Postgres plans to run a query, e.g. whether it uses an index or scans every row.
 </details>
 
-**22.** In a query plan, which is slow on a big table: an index scan or a sequential scan?
+**25.** In a query plan, which is slow on a big table: an index scan or a sequential scan?
 
 <details><summary>Answer</summary>
 
 A sequential scan (`Seq Scan`): it reads every row.
 </details>
 
-**23.** In a query plan, what's the difference between `Index Cond` and `Filter`?
+**26.** In a query plan, what's the difference between `Index Cond` and `Filter`?
 
 <details><summary>Answer</summary>
 
 `Index Cond` is answered by an index. `Filter` is checked on each row, one by one.
 </details>
 
-**24.** What does `EXPLAIN ANALYZE` do that `EXPLAIN` doesn't, and why be careful with it?
+**27.** What does `EXPLAIN ANALYZE` do that `EXPLAIN` doesn't, and why be careful with it?
 
 <details><summary>Answer</summary>
 
@@ -198,21 +221,21 @@ It actually runs the query and shows real times. On a `DELETE` or `UPDATE` it re
 
 ## Go's `database/sql`
 
-**25.** When do you use `QueryRowContext`, `QueryContext` and `ExecContext`?
+**28.** When do you use `QueryRowContext`, `QueryContext` and `ExecContext`?
 
 <details><summary>Answer</summary>
 
 `QueryRowContext`: one row. `QueryContext`: many rows. `ExecContext`: writes with no rows back.
 </details>
 
-**26.** What does `QueryRowContext(...).Scan` return when no row matches?
+**29.** What does `QueryRowContext(...).Scan` return when no row matches?
 
 <details><summary>Answer</summary>
 
 `sql.ErrNoRows`.
 </details>
 
-**27.** Why does `Scan` take pointers, like `Scan(&u.ID, &u.Name)`?
+**30.** Why does `Scan` take pointers, like `Scan(&u.ID, &u.Name)`?
 
 <details><summary>Answer</summary>
 
