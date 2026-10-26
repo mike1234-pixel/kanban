@@ -192,27 +192,21 @@ The database enforces what must never happen, even if the Go code has a bug.
 
 ### Auth middleware
 
-Middleware is a function that wraps a handler and runs on every request to it, before (and after) the handler. In Go: `func(next http.Handler) http.Handler`.
+Middleware is code that runs before a handler, on every request to that handler. In Go it's a function that takes a handler and returns a new handler that wraps it: `func(next http.Handler) http.Handler`. The new handler can do some work first, then call `next.ServeHTTP(w, r)` to run the original handler, or skip that call to stop the request there.
 
+`RequireAuth` (`handlers/middleware.go`) uses this to protect routes. When a request for `GET /me` arrives, the router passes it to `RequireAuth` first. `RequireAuth` reads the `session` cookie, hashes its token, and calls `GetSessionUser`. If there's no cookie, or the query finds no unexpired session, it writes `401 UNAUTHENTICATED` and returns. Because it never calls `next`, the `Me` handler doesn't run.
+
+If the session is valid, the handler still needs to know who the user is. `RequireAuth` passes that on through the request's context: `context.WithValue` creates a new context holding the user, `r.WithContext` creates a copy of the request carrying that context, and `next` is called with the copy. `Me` then reads the user back with `userFromContext(r.Context())`.
+
+The route is protected by wrapping it when it's registered:
+
+```go
+mux.Handle("GET /me", auth.RequireAuth(http.HandlerFunc(auth.Me)))
 ```
-request → router → RequireAuth → Me handler
-                      │
-                      └─ no valid session → 401, Me never runs
-```
 
-`RequireAuth` (`handlers/middleware.go`):
+Because the check lives in one place, it's written once, a new route can't skip it by accident, and handlers only deal with their own job. If `userFromContext` finds no user, the route was registered without `RequireAuth`. That's a bug in the code, not a problem with the request, so `Me` returns a 500.
 
-1. Read the `session` cookie. Missing → `401 UNAUTHENTICATED`.
-2. `GetSessionUser(hashToken(cookie))`. Unknown or expired (`expires_at > NOW()` in SQL) → empty user → `401`.
-3. Put the user in the request's context: `context.WithValue(r.Context(), userKey, user)`.
-4. `next.ServeHTTP(w, r.WithContext(ctx))`.
-
-- **Rejecting = write the response and `return` without calling `next`.**
-- Why middleware: the check is written once, can't be forgotten on a new route, and handlers keep one job.
-- Handlers read the user with `userFromContext(r.Context())`. If it's missing, the route wasn't wrapped: a bug, so 500, not 401.
-- Context values are for request-scoped data (the user, a request ID), with an unexported key type so other packages can't clash.
-- Wiring: `mux.Handle("GET /me", auth.RequireAuth(http.HandlerFunc(auth.Me)))`.
-- `401 UNAUTHENTICATED` (not logged in) is a different code from `401 INVALID_CREDENTIALS` (wrong login details).
+Context values should only hold data about the current request, such as the user or a request ID. The key's type is unexported, so no other package can read or overwrite the value.
 
 Not yet covered: ownership checks (403 vs 404).
 
