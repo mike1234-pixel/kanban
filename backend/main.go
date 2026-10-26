@@ -75,6 +75,7 @@ func main() {
 	authHandler := &handlers.AuthHandler{Store: dbStore, Validate: validate}
 
 	mux.HandleFunc("POST /login", authHandler.Login)
+	mux.HandleFunc("POST /logout", authHandler.Logout)
 	mux.Handle("GET /me", authHandler.RequireAuth(http.HandlerFunc(authHandler.Me)))
 
 	fmt.Println("Server running on http://localhost:8080")

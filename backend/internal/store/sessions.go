@@ -39,3 +39,14 @@ func (s *PostgresStore) GetSessionUser(ctx context.Context, tokenHash string) (m
 }
 
 //#endregion
+
+// #region Delete Session
+// DeleteSession removes a session. Deleting one that doesn't exist isn't an
+// error: either way, the token no longer works.
+func (s *PostgresStore) DeleteSession(ctx context.Context, tokenHash string) error {
+	query := `DELETE FROM sessions WHERE token_hash = $1`
+	_, err := s.db.ExecContext(ctx, query, tokenHash)
+	return err
+}
+
+//#endregion

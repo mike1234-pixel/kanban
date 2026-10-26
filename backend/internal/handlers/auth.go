@@ -86,6 +86,32 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 // #endregion
 
+// #region Logout
+// Logout deletes the session and clears the cookie. It always returns 204,
+// even without a valid session, because the result is the same: logged out.
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	if cookie, err := r.Cookie(sessionCookieName); err == nil {
+		if err := h.Store.DeleteSession(r.Context(), hashToken(cookie.Value)); err != nil {
+			writeInternalError(w, r, err)
+			return
+		}
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     "/", // must match the cookie's Path, or the browser won't delete it
+		MaxAge:   -1,  // sends Max-Age=0: delete the cookie now
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// #endregion
+
 // #region Me
 // Me returns the logged-in user. It must be wrapped in RequireAuth.
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {

@@ -33,6 +33,11 @@ type testStore struct {
 	getUserByEmail func(string) (models.User, error)
 	createSession  func(tokenHash, userID string) error
 	getSessionUser func(tokenHash string) (models.User, error)
+	deleteSession  func(tokenHash string) error
+}
+
+func (s testStore) DeleteSession(_ context.Context, tokenHash string) error {
+	return s.deleteSession(tokenHash)
 }
 
 func (s testStore) GetSessionUser(_ context.Context, tokenHash string) (models.User, error) {
@@ -542,4 +547,66 @@ func TestMeWithoutRequireAuthIsAServerError(t *testing.T) {
 	handler.Me(response, httptest.NewRequest("GET", "/me", nil))
 
 	assertError(t, response, 500, codeInternalError)
+}
+
+func TestLogout(t *testing.T) {
+	logout := func(store testStore, cookie *http.Cookie) *httptest.ResponseRecorder {
+		handler := AuthHandler{Store: store}
+		request := httptest.NewRequest("POST", "/logout", nil)
+		if cookie != nil {
+			request.AddCookie(cookie)
+		}
+		response := httptest.NewRecorder()
+		handler.Logout(response, request)
+		return response
+	}
+
+	// assertCookieCleared checks the response tells the browser to delete the session cookie.
+	assertCookieCleared := func(t *testing.T, response *httptest.ResponseRecorder) {
+		t.Helper()
+		cookies := response.Result().Cookies()
+		if len(cookies) != 1 || cookies[0].Name != sessionCookieName {
+			t.Fatalf("cookies = %v, want one %q cookie", cookies, sessionCookieName)
+		}
+		if cookies[0].Value != "" || cookies[0].MaxAge >= 0 {
+			t.Errorf("cookie value = %q, MaxAge = %d; want empty and deleted", cookies[0].Value, cookies[0].MaxAge)
+		}
+	}
+
+	t.Run("deletes the session and clears the cookie", func(t *testing.T) {
+		var deleted string
+		response := logout(testStore{
+			deleteSession: func(tokenHash string) error { deleted = tokenHash; return nil },
+		}, &http.Cookie{Name: sessionCookieName, Value: "real-token"})
+
+		if response.Code != 204 {
+			t.Fatalf("status = %d, want 204", response.Code)
+		}
+		if deleted != hashToken("real-token") {
+			t.Error("the store wasn't asked to delete the hash of the cookie's token")
+		}
+		assertCookieCleared(t, response)
+	})
+
+	t.Run("succeeds without a cookie", func(t *testing.T) {
+		response := logout(testStore{
+			deleteSession: func(string) error {
+				t.Fatal("DeleteSession called without a cookie")
+				return nil
+			},
+		}, nil)
+
+		if response.Code != 204 {
+			t.Fatalf("status = %d, want 204", response.Code)
+		}
+		assertCookieCleared(t, response)
+	})
+
+	t.Run("returns 500 if the session can't be deleted", func(t *testing.T) {
+		response := logout(testStore{
+			deleteSession: func(string) error { return errors.New("database unavailable") },
+		}, &http.Cookie{Name: sessionCookieName, Value: "real-token"})
+
+		assertError(t, response, 500, codeInternalError)
+	})
 }
