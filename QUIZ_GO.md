@@ -205,48 +205,108 @@ So it can fill in the original `user`. Without a pointer it would get a copy.
 `nil` means "missing", which an `int` can't express: its zero value `0` might be a real value.
 </details>
 
+### Arrays
+
+**26.** What's the difference between an array and a slice?
+
+<details><summary>Answer</summary>
+
+An array has a fixed length that's part of its type (`[3]int`). A slice can grow, and points to an underlying array.
+</details>
+
+**27.** What happens when you assign one array to another variable and change the copy?
+
+<details><summary>Answer</summary>
+
+The original doesn't change. Assigning an array copies every element.
+</details>
+
 ### Slices
 
-**26.** Why must you write `cards = append(cards, c)`, not just `append(cards, c)`?
+**28.** Why must you write `cards = append(cards, c)`, not just `append(cards, c)`?
 
 <details><summary>Answer</summary>
 
 `append` returns the new slice; the old variable isn't updated.
 </details>
 
-**27.** How do you get a slice's length?
+**29.** How do you get a slice's length?
 
 <details><summary>Answer</summary>
 
 `len(s)`.
 </details>
 
+**30.** What are a slice's length and capacity?
+
+<details><summary>Answer</summary>
+
+Length: how many elements are in use. Capacity: how much room the underlying array has before `append` must make a bigger one.
+</details>
+
+**31.** Does slicing (`s[1:3]`) copy the elements? What follows from that?
+
+<details><summary>Answer</summary>
+
+No. The new slice points into the same underlying array, so changing an element through it changes the original too. Use `copy` or `slices.Clone` for an independent copy.
+</details>
+
 ### Maps
 
-**28.** How do you create an empty, usable map?
+**32.** How do you create an empty, usable map?
 
 <details><summary>Answer</summary>
 
 `make(map[string]int)` or `map[string]int{}`.
 </details>
 
-**29.** How do you tell a missing key apart from a zero value?
+**33.** How do you tell a missing key apart from a zero value?
 
 <details><summary>Answer</summary>
 
 `v, ok := m[key]`: `ok` is `false` if the key is missing.
 </details>
 
-**30.** What happens if you write to a `nil` map?
+**34.** What happens if you write to a `nil` map?
 
 <details><summary>Answer</summary>
 
 It panics.
 </details>
 
+**35.** How do you remove a key from a map?
+
+<details><summary>Answer</summary>
+
+`delete(m, key)`. Nothing happens if the key isn't there.
+</details>
+
+**36.** In what order does `for k, v := range m` visit a map's keys?
+
+<details><summary>Answer</summary>
+
+A random order that can change between runs. Sort the keys first if order matters.
+</details>
+
+### Choosing a data structure
+
+**37.** When would you use a struct, a slice and a map?
+
+<details><summary>Answer</summary>
+
+Struct: a fixed set of named fields. Slice: an ordered list that can grow. Map: looking values up by a key.
+</details>
+
+**38.** Which are copied when assigned, and which are shared: struct, array, slice, map?
+
+<details><summary>Answer</summary>
+
+Structs and arrays are copied. Slices and maps are shared: both variables see the same data.
+</details>
+
 ### `any`
 
-**31.** What does `any` mean?
+**39.** What does `any` mean?
 
 <details><summary>Answer</summary>
 
@@ -255,14 +315,14 @@ A value of any type. It's short for `interface{}`.
 
 ### Type assertions
 
-**32.** What does `v, ok := x.(models.User)` do?
+**40.** What does `v, ok := x.(models.User)` do?
 
 <details><summary>Answer</summary>
 
 Checks whether `x` (an `any` or interface value) holds a `models.User`. If so, `v` is that user and `ok` is `true`; if not, `v` is the zero value and `ok` is `false`.
 </details>
 
-**33.** Why use the `, ok` form of a type assertion?
+**41.** Why use the `, ok` form of a type assertion?
 
 <details><summary>Answer</summary>
 
@@ -273,7 +333,7 @@ Without it, a value of the wrong type causes a panic.
 
 ### Parameters that share a type
 
-**34.** What does `func f(tokenHash, userID string)` mean?
+**42.** What does `func f(tokenHash, userID string)` mean?
 
 <details><summary>Answer</summary>
 
@@ -282,14 +342,14 @@ Both `tokenHash` and `userID` are strings. Neighbouring parameters of the same t
 
 ### Methods and receivers
 
-**35.** What is a receiver?
+**43.** What is a receiver?
 
 <details><summary>Answer</summary>
 
 The value a method is attached to, written before the method name: `func (h *UserHandler) CreateUser(...)`.
 </details>
 
-**36.** What's the difference between a pointer receiver and a value receiver?
+**44.** What's the difference between a pointer receiver and a value receiver?
 
 <details><summary>Answer</summary>
 
@@ -298,14 +358,14 @@ A pointer receiver works on the original; a value receiver gets a copy.
 
 ### Functions as values
 
-**37.** In `mux.HandleFunc("POST /users", userHandler.CreateUser)`, why is there no `()` after `CreateUser`?
+**45.** In `mux.HandleFunc("POST /users", userHandler.CreateUser)`, why is there no `()` after `CreateUser`?
 
 <details><summary>Answer</summary>
 
 The method is passed as a value for the router to call later; `()` would call it now.
 </details>
 
-**38.** What is a closure?
+**46.** What is a closure?
 
 <details><summary>Answer</summary>
 
@@ -314,14 +374,14 @@ An anonymous function that uses variables from the code around it.
 
 ### `defer`
 
-**39.** When does a deferred call run?
+**47.** When does a deferred call run?
 
 <details><summary>Answer</summary>
 
 When the surrounding function returns, however it returns.
 </details>
 
-**40.** Where should `defer rows.Close()` go?
+**48.** Where should `defer rows.Close()` go?
 
 <details><summary>Answer</summary>
 
@@ -330,14 +390,14 @@ Right after successfully getting `rows`, so cleanup can't be forgotten.
 
 ## Interfaces
 
-**41.** How does a type satisfy an interface in Go?
+**49.** How does a type satisfy an interface in Go?
 
 <details><summary>Answer</summary>
 
 By having all its methods. It's automatic; there's no `implements` keyword.
 </details>
 
-**42.** Why do handlers depend on the `Store` interface rather than `*PostgresStore`?
+**50.** Why do handlers depend on the `Store` interface rather than `*PostgresStore`?
 
 <details><summary>Answer</summary>
 
@@ -346,28 +406,28 @@ So tests can pass in a fake store instead of a real database.
 
 ## Errors
 
-**43.** What does a `nil` error mean?
+**51.** What does a `nil` error mean?
 
 <details><summary>Answer</summary>
 
 Success.
 </details>
 
-**44.** Go has no exceptions. How do errors travel up the call chain?
+**52.** Go has no exceptions. How do errors travel up the call chain?
 
 <details><summary>Answer</summary>
 
 They're returned, and each caller checks `if err != nil`.
 </details>
 
-**45.** What does `%w` do in `fmt.Errorf`?
+**53.** What does `%w` do in `fmt.Errorf`?
 
 <details><summary>Answer</summary>
 
 Wraps the original error, adding context while keeping it findable with `errors.Is` and `errors.As`.
 </details>
 
-**46.** What's the difference between `errors.Is` and `errors.As`?
+**54.** What's the difference between `errors.Is` and `errors.As`?
 
 <details><summary>Answer</summary>
 
@@ -376,21 +436,21 @@ Wraps the original error, adding context while keeping it findable with `errors.
 
 ## Testing
 
-**47.** How must test files and test functions be named?
+**55.** How must test files and test functions be named?
 
 <details><summary>Answer</summary>
 
 Files end in `_test.go`; functions start with `Test` and take `t *testing.T`.
 </details>
 
-**48.** What's the difference between `t.Fatalf` and `t.Errorf`?
+**56.** What's the difference between `t.Fatalf` and `t.Errorf`?
 
 <details><summary>Answer</summary>
 
 `t.Fatalf` fails and stops the test; `t.Errorf` fails and keeps going.
 </details>
 
-**49.** What does `./...` mean in `go test ./...`?
+**57.** What does `./...` mean in `go test ./...`?
 
 <details><summary>Answer</summary>
 

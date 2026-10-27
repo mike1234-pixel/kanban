@@ -154,9 +154,22 @@ return &PostgresStore{db: db}, nil       // return a pointer to a new struct
 
 - Without a pointer, a function gets a **copy** and can't change your variable.
 
+### Arrays
+
+A fixed-length list. The length is part of the type: `[3]int` and `[4]int` are different types.
+
+```go
+var scores [3]int        // [0 0 0]: zero values, not nil
+scores[0] = 10           // [10 0 0]
+copy := scores           // copies all 3 values
+copy[0] = 99             // scores is still [10 0 0]
+```
+
+Assigning an array, or passing it to a function, copies every element. Arrays can't grow, so Go code rarely uses them directly; slices are built on top of them.
+
 ### Slices
 
-A growable list: `[]T`.
+A growable list: `[]T`. A slice doesn't hold the elements itself. It points to an underlying array and records two numbers: its **length** (elements in use) and its **capacity** (room in the array before it must grow).
 
 ```go
 cards := []models.Card{}       // empty, encodes as []
@@ -164,6 +177,25 @@ var cards []models.Card        // nil, encodes as null
 cards = append(cards, c)       // append returns the new slice; always reassign
 len(cards)                     // length
 ```
+
+```go
+s := make([]int, 0, 10)   // length 0, capacity 10: room for 10 before growing
+s = append(s, 1, 2, 3)    // [1 2 3], len 3, cap 10
+```
+
+When `append` runs out of capacity, it copies everything into a new, bigger array. That's why its result must be assigned back.
+
+**Slicing** takes part of a slice with `s[from:to]`. `from` is included and `to` isn't:
+
+```go
+s := []int{10, 20, 30, 40}
+mid := s[1:3]   // [20 30]
+mid[0] = 99     // s is now [10 99 30 40]
+```
+
+`mid` doesn't copy anything. It points into the same array as `s`, so changing `mid[0]` changes `s[1]`. Use `copy` or `slices.Clone` when you need an independent copy.
+
+`for i, v := range s` loops over a slice in order.
 
 ### Maps
 
@@ -173,9 +205,24 @@ Key → value lookup: `map[K]V`.
 colMap := make(map[string]int)   // make creates an empty, usable map
 colMap[c.ID] = len(columns)      // set
 i, ok := colMap[id]              // get; ok is false if the key is missing
+delete(colMap, id)               // remove a key; nothing happens if it isn't there
+len(colMap)                      // number of keys
 ```
 
 - Writing to a `nil` map panics, so create it with `make` or a literal (`map[string]int{}`).
+- `for key, value := range m` loops over a map, but **in a random order** that changes from run to run. If the order matters, collect the keys into a slice and sort it.
+- Like a slice, a map refers to its data: assigning it or passing it to a function shares the same map, not a copy.
+
+### Choosing a data structure
+
+| Use | When | Example in this project |
+| --- | --- | --- |
+| Struct | A fixed set of named fields, possibly of different types | `models.User` |
+| Slice | An ordered list that can grow | `[]models.Card` in a column |
+| Map | Looking values up by a key | `colMap`: column ID → position in the slice |
+| Array | A fixed number of items, known when writing the code | Rare; mostly inside slices |
+
+Assigning a struct or an array copies its values. Assigning a slice or a map copies only the reference, so both variables see the same data.
 
 ### `any`
 

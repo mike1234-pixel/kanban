@@ -250,14 +250,28 @@ Attackers guess passwords and hash each guess. A slow hash (about 100ms) makes g
 A random value mixed into each password before hashing, so identical passwords get different hashes. It stops precomputed lookup tables (rainbow tables).
 </details>
 
-**33.** How does login check a password, if a hash can't be reversed?
+**33.** Why doesn't the salt need to be secret?
+
+<details><summary>Answer</summary>
+
+It's random, so it can't be guessed in advance to build a lookup table. Once stolen, it only lets an attacker guess one user's password at a time.
+</details>
+
+**34.** Does a salt stop an attacker guessing passwords? What does?
+
+<details><summary>Answer</summary>
+
+No: they can still hash guesses with a user's salt and compare. bcrypt's slowness makes each guess expensive, and a strong password makes guessing it impractical.
+</details>
+
+**35.** How does login check a password, if a hash can't be reversed?
 
 <details><summary>Answer</summary>
 
 It hashes what the user typed with the same salt and cost (read from the stored hash) and compares the result with the stored hash.
 </details>
 
-**34.** Which struct tag keeps a field out of JSON responses?
+**36.** Which struct tag keeps a field out of JSON responses?
 
 <details><summary>Answer</summary>
 
@@ -266,28 +280,28 @@ It hashes what the user typed with the same salt and cost (read from the stored 
 
 ### Sessions and cookies
 
-**35.** HTTP is stateless. How does the server know who sent a request after login?
+**37.** HTTP is stateless. How does the server know who sent a request after login?
 
 <details><summary>Answer</summary>
 
 Login creates a session and sets a cookie holding a random session token. The browser sends the cookie on every request, and the server looks the token up in the `sessions` table.
 </details>
 
-**36.** Why store a hash of the session token rather than the token itself?
+**38.** Why store a hash of the session token rather than the token itself?
 
 <details><summary>Answer</summary>
 
 A token is usable as it is: anyone with it is logged in. If the table leaks, hashes can't be used.
 </details>
 
-**37.** Why is SHA-256 fine for session tokens, when passwords need bcrypt?
+**39.** Why is SHA-256 fine for session tokens, when passwords need bcrypt?
 
 <details><summary>Answer</summary>
 
 Tokens are long and random, so they can't be guessed; slowness adds nothing and would slow every request. Passwords are guessable, so they need a slow hash.
 </details>
 
-**38.** What do the cookie flags `HttpOnly`, `Secure` and `SameSite` do?
+**40.** What do the cookie flags `HttpOnly`, `Secure` and `SameSite` do?
 
 <details><summary>Answer</summary>
 
@@ -296,37 +310,58 @@ Tokens are long and random, so they can't be guessed; slowness adds nothing and 
 
 ### Sessions vs JWTs
 
-**39.** What's the main difference between a session token and a JWT?
+**41.** What's the main difference between a session token and a JWT?
 
 <details><summary>Answer</summary>
 
 A session token is a random ID the server looks up; a JWT contains the user's details, signed, so the server trusts it without a lookup.
 </details>
 
-**40.** How do you log a user out everywhere with sessions, and why is it hard with JWTs?
+**42.** How do you log a user out everywhere with sessions, and why is it hard with JWTs?
 
 <details><summary>Answer</summary>
 
 Delete all their session rows. A JWT has nothing stored to delete, so it stays valid until it expires (unless you add a blocklist).
 </details>
 
-**41.** Is a JWT's payload secret?
+**43.** Is a JWT's payload secret?
 
 <details><summary>Answer</summary>
 
 No. JWTs are usually signed, not encrypted: anyone can read the payload, but can't change it without breaking the signature.
 </details>
 
+**44.** How does the server check a JWT's signature?
+
+<details><summary>Answer</summary>
+
+It recalculates the signature from the token's header and payload using its secret key, and compares it with the token's signature. A mismatch means the token was changed (or not made by this server).
+</details>
+
+**45.** Why can't an attacker change a JWT's payload and make a new valid signature?
+
+<details><summary>Answer</summary>
+
+Making the signature needs the server's secret key, which never leaves the server.
+</details>
+
+**46.** Does a JWT's payload change from one request to the next? Who makes a new one?
+
+<details><summary>Answer</summary>
+
+No. The client sends the same token, created at login, on every request; only the URL and body change. If the payload needs to change, the server issues a new token with a new signature.
+</details>
+
 ### User enumeration
 
-**42.** What is user enumeration?
+**47.** What is user enumeration?
 
 <details><summary>Answer</summary>
 
 Using an app's responses (messages or timing) to find out which emails have accounts.
 </details>
 
-**43.** What two things does login keep identical for an unknown email and a wrong password?
+**48.** What two things does login keep identical for an unknown email and a wrong password?
 
 <details><summary>Answer</summary>
 
@@ -335,14 +370,14 @@ The error message (and status), and the response time.
 
 ### Database constraints
 
-**44.** What happens if you delete a user who still has sessions, when `sessions.user_id` is `REFERENCES users(id)` without `ON DELETE CASCADE`?
+**49.** What happens if you delete a user who still has sessions, when `sessions.user_id` is `REFERENCES users(id)` without `ON DELETE CASCADE`?
 
 <details><summary>Answer</summary>
 
 Postgres refuses the delete with a foreign key violation (`23503`).
 </details>
 
-**45.** What does `ON DELETE CASCADE` do?
+**50.** What does `ON DELETE CASCADE` do?
 
 <details><summary>Answer</summary>
 
@@ -351,28 +386,28 @@ Deleting the referenced row (the user) also deletes the rows that reference it (
 
 ### Auth middleware
 
-**46.** What is middleware?
+**51.** What is middleware?
 
 <details><summary>Answer</summary>
 
 A function that wraps a handler and runs on every request to it, before (and after) the handler. In Go: `func(next http.Handler) http.Handler`.
 </details>
 
-**47.** How does middleware reject a request?
+**52.** How does middleware reject a request?
 
 <details><summary>Answer</summary>
 
 It writes the error response and returns without calling `next.ServeHTTP`, so the handler never runs.
 </details>
 
-**48.** How does the auth middleware pass the logged-in user to the handler?
+**53.** How does the auth middleware pass the logged-in user to the handler?
 
 <details><summary>Answer</summary>
 
 It adds the user to the request's context with `context.WithValue`, and passes on `r.WithContext(ctx)`. The handler reads it back from `r.Context()`.
 </details>
 
-**49.** Why put the session check in middleware rather than in each handler?
+**54.** Why put the session check in middleware rather than in each handler?
 
 <details><summary>Answer</summary>
 
@@ -381,21 +416,21 @@ It's written once, it can't be forgotten on a new route, and handlers keep their
 
 ### Logout
 
-**50.** What are the two halves of logout, and which one actually logs the user out?
+**55.** What are the two halves of logout, and which one actually logs the user out?
 
 <details><summary>Answer</summary>
 
 Deleting the session row (server) and clearing the cookie (browser). Deleting the row is what logs them out: the token then matches nothing.
 </details>
 
-**51.** Why is logout `POST`, not `GET`?
+**56.** Why is logout `POST`, not `GET`?
 
 <details><summary>Answer</summary>
 
 A `GET` should never change anything. Browsers, link previews and other sites can send `GET` requests on their own.
 </details>
 
-**52.** Why does logout return `204` even when there's no cookie or session?
+**57.** Why does logout return `204` even when there's no cookie or session?
 
 <details><summary>Answer</summary>
 
@@ -404,28 +439,28 @@ The result is the same either way: logged out. That makes it idempotent.
 
 ### Ownership checks (403 vs 404)
 
-**53.** What's the difference between authentication and authorization?
+**58.** What's the difference between authentication and authorization?
 
 <details><summary>Answer</summary>
 
 Authentication: who are you? Authorization: are you allowed to do this, to this particular thing?
 </details>
 
-**54.** Why does Bo get `404`, not `403`, for Ada's board?
+**59.** Why does Bo get `404`, not `403`, for Ada's board?
 
 <details><summary>Answer</summary>
 
 `403` would confirm the board exists, which leaks information. `404` makes "not yours" look the same as "doesn't exist".
 </details>
 
-**55.** Where must the owner of a new board come from?
+**60.** Where must the owner of a new board come from?
 
 <details><summary>Answer</summary>
 
 The session (the logged-in user), never the request body.
 </details>
 
-**56.** Columns and cards have no `owner_id`. How are they checked?
+**61.** Columns and cards have no `owner_id`. How are they checked?
 
 <details><summary>Answer</summary>
 

@@ -139,6 +139,14 @@ login:    bcrypt(what they typed) == stored hash?  →  correct password
 
 - **Slow on purpose.** Attackers guess passwords and hash each guess. Fast hashes (SHA-256) allow billions of guesses a second; bcrypt and Argon2id take about 100ms each. The cost factor (`bcrypt.DefaultCost` = 10) sets how slow.
 - **Salt:** a random value mixed in before hashing, so identical passwords get different hashes. It defeats precomputed lookup tables (rainbow tables). It isn't secret.
+  - Why it can be public: bcrypt generates the salt randomly, rather than a person choosing it, so an attacker can't guess it in advance and build a lookup table for it. Once they've stolen the database they can read every salt, but that only lets them guess passwords one user at a time, with bcrypt's slow hash on every guess.
+- **A salt doesn't stop guessing.** An attacker with the stolen database can still take a guess, hash it with a user's salt and compare. What each layer does:
+
+  | Layer | Stops |
+  | --- | --- |
+  | Salt | Pre-built lookup tables, and cracking every user who shares a password at once (500 users with `password123` get 500 different hashes) |
+  | bcrypt's slowness | Fast guessing: about 10 guesses a second per CPU core, instead of billions with SHA-256 |
+  | A strong password | Being guessed at all: `password123` is near the top of every guess list and still falls quickly; a long random one would take far too long |
 - **bcrypt stores everything in one string:** `$2a$10$<salt><hash>` holds the version, cost, salt and hash, so `CompareHashAndPassword` can repeat the hash at login.
 - **bcrypt vs Argon2id:** Argon2id is newer and memory-hard (resists GPUs); bcrypt is simpler and still safe. This project uses bcrypt.
 - bcrypt only uses the first 72 **bytes**, so validate the password length (here 8–72) and handle `bcrypt.ErrPasswordTooLong`.
@@ -172,6 +180,29 @@ A **JWT** (JSON Web Token) holds the user's details itself (`{"user_id":…,"exp
 | Stale data | No, looked up fresh | Yes, e.g. an old role stays in old tokens |
 
 - JWTs are usually **signed, not encrypted**: anyone can read the payload; the signature only stops changes.
+
+  **What a signature is.** A JWT is three base64 strings joined by dots: `header.payload.signature`. The payload is only encoded, not hidden: decoding `eyJ1c2VyX2lkIjoiMSJ9` gives `{"user_id":"1"}`, which anyone can do. The signature is a hash (commonly HMAC-SHA256) of the header and payload combined with a **secret key** that only the server knows:
+
+  ```
+  signature = HMAC-SHA256(header + "." + payload, secretKey)
+  ```
+
+  **The token never changes between requests.** The server creates the token once, at login, and the client sends back exactly the same token on every request. What changes between requests is the URL and the request body; the token just rides alongside, like our session cookie:
+
+  ```
+  Login     → server creates token: {"user_id":"1"}, signature X
+  Request 1 → client sends the same token: {"user_id":"1"}, X   ✅
+  Request 2 → client sends the same token: {"user_id":"1"}, X   ✅
+  Attacker  → edits the payload:   {"user_id":"2"}, X   ❌ signature doesn't match
+  ```
+
+  So any payload that differs from what the server signed must have been changed by someone else. When the payload legitimately needs to change (e.g. the token expires), the **server** issues a whole new token with a new signature. The client never edits a token; it only stores it and sends it back.
+
+  To check a token, the server recalculates the signature from the header and payload it received, using its secret key, and compares it with the signature on the token. If they match, the payload hasn't been changed since the server signed it.
+
+  **Worked example.** The server issues a token with payload `{"user_id":"1"}` and signature `X`. An attacker changes the payload to `{"user_id":"2"}` but keeps `X`. The server recalculates the signature over `{"user_id":"2"}` and gets `Y`, a different value, so it rejects the token. To make a matching signature for the new payload, the attacker would need the secret key, which never leaves the server.
+
+  So a signature proves the payload is **unchanged and came from the server**, but it doesn't hide it. Never put secrets in a JWT payload.
 - JWTs suit many services verifying users without a shared database. For one browser app with one backend, sessions are simpler and logout really works.
 
 ### User enumeration
@@ -220,7 +251,7 @@ In Go, `MaxAge: -1` is what sends `Max-Age=0`, because `MaxAge: 0` means "don't 
 
 ### Ownership checks (403 vs 404)
 
-Authentication answers "who are you?"; authorization answers "may you do this, to this thing?". Being logged in isn't enough: Bo must not read or change Ada's boards, even if he knows their IDs.
+Authentication answers "who are you?"; authorization answers "are you allowed to do this?". Being logged in isn't enough: Bo must not read or change Ada's boards, even if he knows their IDs.
 
 Each board has an `owner_id`. Every query includes the logged-in user, taken from the session through `currentUser`, never from the request body. `GET /boards/b1` runs `WHERE id = $1 AND owner_id = $2`. If Bo asks for Ada's board, that matches no rows, exactly as if the board didn't exist, so he gets `404 BOARD_NOT_FOUND`. Updates and deletes do the same with `RowsAffected() == 0`.
 
