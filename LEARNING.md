@@ -60,6 +60,7 @@ Decoding proves the JSON is readable; validation proves it makes sense.
 
 ### Path/query params
 
+- **URL = Uniform Resource Locator:** the address of a resource, saying where it is and how to reach it. In `http://localhost:8080/boards/123?page=2`: `http` is the scheme, `localhost:8080` the host and port, `/boards/123` the path, `?page=2` the query.
 - **Path params identify _which_ resource:** `GET /boards/{id}`, read with `r.PathValue("id")`.
 - **Query params filter or shape the result:** `/columns?board_id=…`, read with `r.URL.Query().Get("board_id")`. Returns `""` if missing.
 - The router matches path params and methods (wrong method → 405); it ignores query params, so the handler checks them.
@@ -140,13 +141,15 @@ login:    bcrypt(what they typed) == stored hash?  →  correct password
 - **Slow on purpose.** Attackers guess passwords and hash each guess. Fast hashes (SHA-256) allow billions of guesses a second; bcrypt and Argon2id take about 100ms each. The cost factor (`bcrypt.DefaultCost` = 10) sets how slow.
 - **Salt:** a random value mixed in before hashing, so identical passwords get different hashes. It defeats precomputed lookup tables (rainbow tables). It isn't secret.
   - Why it can be public: bcrypt generates the salt randomly, rather than a person choosing it, so an attacker can't guess it in advance and build a lookup table for it. Once they've stolen the database they can read every salt, but that only lets them guess passwords one user at a time, with bcrypt's slow hash on every guess.
-- **A salt doesn't stop guessing.** An attacker with the stolen database can still take a guess, hash it with a user's salt and compare. What each layer does:
+- **Nothing stops guessing; it can only be made impractical.** An attacker with the stolen database can always take a guess, hash it with a user's salt and compare. The defences decide how long that takes:
 
-  | Layer | Stops |
+  | Defence | What it does |
   | --- | --- |
-  | Salt | Pre-built lookup tables, and cracking every user who shares a password at once (500 users with `password123` get 500 different hashes) |
-  | bcrypt's slowness | Fast guessing: about 10 guesses a second per CPU core, instead of billions with SHA-256 |
-  | A strong password | Being guessed at all: `password123` is near the top of every guess list and still falls quickly; a long random one would take far too long |
+  | Salt | Removes the shortcuts: pre-built lookup tables don't work, and each user must be guessed separately (500 users with `password123` get 500 different hashes) |
+  | bcrypt's slowness | Slows each guess down: about 10 guesses a second per CPU core, instead of billions with SHA-256 |
+  | A strong password | Makes the number of guesses needed enormous |
+
+  Worked example at 10 guesses a second: `password123` is in the first few thousand guesses of any list, so it falls in minutes. A random 12-character password has about 10²³ possibilities, so it would take billions of years.
 - **bcrypt stores everything in one string:** `$2a$10$<salt><hash>` holds the version, cost, salt and hash, so `CompareHashAndPassword` can repeat the hash at login.
 - **bcrypt vs Argon2id:** Argon2id is newer and memory-hard (resists GPUs); bcrypt is simpler and still safe. This project uses bcrypt.
 - bcrypt only uses the first 72 **bytes**, so validate the password length (here 8–72) and handle `bcrypt.ErrPasswordTooLong`.
@@ -202,7 +205,29 @@ A **JWT** (JSON Web Token) holds the user's details itself (`{"user_id":…,"exp
 
   **Worked example.** The server issues a token with payload `{"user_id":"1"}` and signature `X`. An attacker changes the payload to `{"user_id":"2"}` but keeps `X`. The server recalculates the signature over `{"user_id":"2"}` and gets `Y`, a different value, so it rejects the token. To make a matching signature for the new payload, the attacker would need the secret key, which never leaves the server.
 
+  **Common mix-ups:**
+
+  1. The signature is made from the **header and payload**, not "payload and signature". The signature doesn't exist yet when it's being calculated.
+  2. The **secret is never attached** to the JWT. Only the result of the hash, the signature, goes on the token. The secret never leaves the server. If it were attached, anyone could use it to sign their own tokens.
+  3. On the way back, the server **hashes the header and payload with its secret**, then compares the result with the signature on the token.
+
+  ```
+  Creating:   signature = hash(header + payload, secret)
+              token     = header.payload.signature        ← secret is NOT in here
+
+  Checking:   hash(header + payload received, secret) == signature received?
+              yes → unchanged, made by this server
+              no  → rejected
+  ```
+
+  **One secret for every user.** The secret is a single value stored in an environment variable on the server (e.g. `JWT_SECRET` in `.env`, read at startup like `DB_PASSWORD`), so the same secret signs every user's token. Each token's signature still differs, because each payload differs: `hash({"user_id":"1"}, secret)` gives `X`, `hash({"user_id":"2"}, secret)` gives `Y`. Never put the secret in code, git or the database: anyone who has it can forge a token for any user.
+
   So a signature proves the payload is **unchanged and came from the server**, but it doesn't hide it. Never put secrets in a JWT payload.
+- **Access and refresh tokens (a JWT pattern):** they exist to fix JWT's revocation problem.
+  - **Access token:** a short-lived JWT (e.g. 15 minutes), sent on every request and checked with no database lookup.
+  - **Refresh token:** a long-lived random token (e.g. 30 days) **stored in the database**. When the access token expires, the client sends the refresh token to get a new one.
+  - Logout deletes the refresh token. The current access token keeps working until it expires (at most 15 minutes), then no new one can be issued.
+  - Sessions don't need this: every request already checks the `sessions` table, so deleting the row logs the user out immediately. A refresh token is essentially a session; the pattern is "JWTs for speed on most requests, plus a session-like token for revocation".
 - JWTs suit many services verifying users without a shared database. For one browser app with one backend, sessions are simpler and logout really works.
 
 ### User enumeration
@@ -262,5 +287,101 @@ The response for something that exists but isn't yours is `404`, not `403`. A `4
 Putting the check inside the SQL, rather than loading the row and comparing owners in Go, means one query and nothing to forget.
 
 Step 3 complete.
+
+## 4. Transactions
+
+### What a transaction is (ACID)
+
+A transaction groups several SQL statements so they succeed or fail as one unit.
+
+Example: moving card `c1` from `todo` to `done` is two writes:
+
+1. `UPDATE cards SET column_id = 'done' WHERE id = 'c1'`
+2. `INSERT INTO card_movements (card_id, from_column_id, to_column_id) VALUES ('c1', 'todo', 'done')`
+
+Without a transaction, if the server crashes between 1 and 2, the card is in `done` but the history has no record of the move. With a transaction, either both rows change or neither does.
+
+ACID is the four guarantees a transaction gives:
+
+- **Atomicity:** all or nothing. A failure part-way undoes every earlier statement.
+- **Consistency:** constraints (`NOT NULL`, `UNIQUE`, `FOREIGN KEY`) hold at the end, or the transaction fails.
+- **Isolation:** other connections don't see half-finished changes. How strictly is set by the isolation level (step 5).
+- **Durability:** once `COMMIT` returns, the change survives a crash or power cut.
+
+A single statement is already its own transaction. You only need an explicit one when two or more statements must stay in step.
+
+### `BeginTx` / `Commit` / `Rollback`
+
+The three calls that start and end a transaction in `database/sql`:
+
+- `tx, err := s.db.BeginTx(ctx, nil)` takes one connection from the pool, sends `BEGIN`, and returns a `*sql.Tx` tied to that connection. `nil` means default options (Postgres's default isolation level, `READ COMMITTED`).
+- `tx.Commit()` sends `COMMIT`: every change becomes permanent and visible to other connections at the same moment.
+- `tx.Rollback()` sends `ROLLBACK`: every change since `BEGIN` is thrown away, as if it never ran.
+
+After either one, the connection goes back to the pool and the `tx` can't be used again (calls return `sql.ErrTxDone`).
+
+`ctx` is `r.Context()`. If the client disconnects or times out before `Commit`, `database/sql` rolls the transaction back automatically.
+
+### `defer tx.Rollback()`
+
+Call `defer tx.Rollback()` straight after `BeginTx` succeeds, so every early `return` rolls back.
+
+```go
+tx, err := s.db.BeginTx(ctx, nil)
+if err != nil {
+    return false, err
+}
+defer tx.Rollback()
+```
+
+`MoveCard` has six `return`s between `BeginTx` and `Commit`. Without the `defer`, each would need its own `tx.Rollback()`, and forgetting one leaves the transaction open: the connection stays checked out, and any row locks stay held.
+
+If `Commit` succeeds, the deferred `Rollback` still runs, but it does nothing and returns `sql.ErrTxDone`, which is ignored. That's why it's safe to always defer it.
+
+### Every query on `tx`, not `db`
+
+Inside a transaction, every statement must go through `tx` (`tx.QueryRowContext`, `tx.ExecContext`), never `s.db`.
+
+`s.db` is a pool of connections. A transaction lives on one connection. `s.db.ExecContext(...)` borrows a different connection, so that statement:
+
+- runs outside the transaction and commits on its own straight away
+- isn't undone by `Rollback`
+- can't see the transaction's uncommitted changes
+- can get stuck waiting on a row the transaction has locked
+
+The method names are the same on both (`ExecContext`, `QueryRowContext`), so the mistake compiles and looks right. Check the receiver.
+
+### `MoveCard` (`POST /cards/{id}/move`)
+
+A dedicated endpoint for moving a card, separate from `PUT /cards/{id}`, because a move does more than change one field: it also records history.
+
+Request: `POST /cards/c1/move` with `{"column_id": "done"}`. Success is `204`.
+
+Inside one transaction, `store.MoveCard`:
+
+1. Reads the card's current column (`todo`), checking via `boards.owner_id` that it's yours.
+2. Checks the destination column exists and is on one of your boards.
+3. `UPDATE cards` to the new column.
+4. `INSERT INTO card_movements` with `from_column_id = todo`, `to_column_id = done`.
+5. `Commit`.
+
+`card_movements` is an append-only history: rows are added, never updated. Step 1 needs the old column before it's overwritten, which is why the read happens inside the same transaction.
+
+Step 1 also uses `SELECT ... FOR UPDATE`, which locks the card row until commit. That's for two people moving the same card at once (step 5).
+
+### Mapping transaction failures to API errors
+
+The store returns three kinds of result, and the handler turns each into a response:
+
+| Store returns | Meaning | Response |
+| --- | --- | --- |
+| `true, nil` | committed | `204` |
+| `false, nil` | card missing or not yours | `404 CARD_NOT_FOUND` |
+| `ErrColumnNotFound` | destination column missing or not yours | `404 COLUMN_NOT_FOUND` |
+| any other error | `BeginTx`, a query, or `Commit` failed | `500 INTERNAL_ERROR` (logged) |
+
+In every failure case the deferred `Rollback` has already undone the work, so the database is unchanged. The client never gets a half-done move.
+
+`ErrColumnNotFound` is a sentinel error: a package-level `var` the handler checks with `errors.Is`. That way the store reports *what* went wrong without knowing about HTTP status codes.
 
 Go syntax lives in `LEARNING_GO.md`.
