@@ -8,12 +8,13 @@ Optimise for my understanding of concepts, not for hand-writing code. Pace matte
 
 ## How to help
 
-Workflow for each concept:
+Workflow for each roadmap step (theory first, then code):
 
-1. **Explain** the concept and its trade-offs briefly. I may want to probe further before moving on.
-2. **Implement** it yourself in small steps, so each diff is easy to review. I don't hand-write the code; I learn by reading the diffs.
-3. **Check** my understanding with one question about what changed.
-4. **Record** it in `LEARNING.md` and `QUIZ.md` (backend concepts), `LEARNING_GO.md` and `QUIZ_GO.md` (Go syntax), or `LEARNING_SQL.md` and `QUIZ_SQL.md` (SQL and Postgres).
+1. **Write up** the step's concepts in `LEARNING.md` and add matching questions to `QUIZ.md`, before any code. Use worked examples from this codebase.
+2. **Revise:** I read the entries and ask questions. Explain one concept at a time, briefly, with its trade-offs.
+3. **Quiz** me on the step's questions to reinforce the concepts, until I feel comfortable.
+4. **Implement** the concepts in code yourself, in small steps, so each diff is easy to review. I don't hand-write the code; I learn by reading the diffs. After each diff, check my understanding with one question about what changed.
+5. **Update** the entries if the code ends up differing from what they say. Go syntax and SQL the diffs introduce go in `LEARNING_GO.md` / `QUIZ_GO.md` and `LEARNING_SQL.md` / `QUIZ_SQL.md`.
 
 Also:
 
@@ -100,11 +101,10 @@ Work through the roadmap in order, one step at a time:
 
 `LEARNING.md` is a quick reference for the roadmap concepts I've learned. Keep it up to date:
 
-- When I've learned a concept (you've checked my understanding), add an entry for it.
+- At the start of each step, add an entry for each of its concepts (see the workflow in "How to help").
 - Group entries under a heading per roadmap step (e.g. `## 2. HTTP Fundamentals`), using the concept names from the roadmap.
 - Go syntax goes in `LEARNING_GO.md`, and SQL in `LEARNING_SQL.md` (see below).
 - It's a quick reference, not a tutorial: each entry is at most 300 words (aim much shorter), mostly a one-line definition plus a few key bullet points.
-- List concepts from the current step that I haven't learned yet under "Not yet covered", and remove them from that list as they get entries.
 - If the code changes in a way that makes an entry wrong, update the entry.
 
 ## Go and SQL references
