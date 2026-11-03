@@ -46,6 +46,7 @@ Converting between JSON text and Go structs.
   Title string   // exported: included in JSON
   notes string   // unexported: ignored
   ```
+
 - A `nil` slice encodes as `null`; an empty slice as `[]`.
 - Unknown fields are ignored; wrong types are a decode error (400).
 
@@ -143,13 +144,14 @@ login:    bcrypt(what they typed) == stored hash?  →  correct password
   - Why it can be public: bcrypt generates the salt randomly, rather than a person choosing it, so an attacker can't guess it in advance and build a lookup table for it. Once they've stolen the database they can read every salt, but that only lets them guess passwords one user at a time, with bcrypt's slow hash on every guess.
 - **Nothing stops guessing; it can only be made impractical.** An attacker with the stolen database can always take a guess, hash it with a user's salt and compare. The defences decide how long that takes:
 
-  | Defence | What it does |
-  | --- | --- |
-  | Salt | Removes the shortcuts: pre-built lookup tables don't work, and each user must be guessed separately (500 users with `password123` get 500 different hashes) |
-  | bcrypt's slowness | Slows each guess down: about 10 guesses a second per CPU core, instead of billions with SHA-256 |
-  | A strong password | Makes the number of guesses needed enormous |
+  | Defence           | What it does                                                                                                                                                |
+  | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | Salt              | Removes the shortcuts: pre-built lookup tables don't work, and each user must be guessed separately (500 users with `password123` get 500 different hashes) |
+  | bcrypt's slowness | Slows each guess down: about 10 guesses a second per CPU core, instead of billions with SHA-256                                                             |
+  | A strong password | Makes the number of guesses needed enormous                                                                                                                 |
 
   Worked example at 10 guesses a second: `password123` is in the first few thousand guesses of any list, so it falls in minutes. A random 12-character password has about 10²³ possibilities, so it would take billions of years.
+
 - **bcrypt stores everything in one string:** `$2a$10$<salt><hash>` holds the version, cost, salt and hash, so `CompareHashAndPassword` can repeat the hash at login.
 - **bcrypt vs Argon2id:** Argon2id is newer and memory-hard (resists GPUs); bcrypt is simpler and still safe. This project uses bcrypt.
 - bcrypt only uses the first 72 **bytes**, so validate the password length (here 8–72) and handle `bcrypt.ErrPasswordTooLong`.
@@ -165,7 +167,7 @@ GET /boards  → browser sends Cookie: session=<token> → look up session → u
 ```
 
 - **Session:** a server-side record mapping a token to a user and an expiry (`sessions` table).
-- **Session token:** 32 random bytes from `crypto/rand` (never `math/rand`, which is predictable). Possessing it *is* being logged in.
+- **Session token:** 32 random bytes from `crypto/rand` (never `math/rand`, which is predictable). Possessing it _is_ being logged in.
 - **Store only its hash** (`token_hash`). A leaked table must not contain usable tokens. SHA-256 is fine here: a random token can't be guessed, so bcrypt's slowness would only slow every request.
 - **Cookie flags:** `HttpOnly` (JS can't read it: XSS), `Secure` (HTTPS only), `SameSite` (not sent on other sites' requests: CSRF), `Expires`/`Max-Age`.
 - **Logout** = delete the session row; it stops working immediately. Log out everywhere: `DELETE FROM sessions WHERE user_id = $1`.
@@ -175,12 +177,12 @@ GET /boards  → browser sends Cookie: session=<token> → look up session → u
 
 A **JWT** (JSON Web Token) holds the user's details itself (`{"user_id":…,"exp":…}`), signed by the server. The server checks the signature and trusts the contents, with no lookup.
 
-| | Sessions | JWT |
-| --- | --- | --- |
-| Client holds | A random ID, meaningless alone | The data itself, signed |
-| Per request | One database lookup | Verify the signature only |
-| Revoke | Delete the row: instant | Valid until it expires (unless you add a blocklist, which is a lookup again) |
-| Stale data | No, looked up fresh | Yes, e.g. an old role stays in old tokens |
+|              | Sessions                       | JWT                                                                          |
+| ------------ | ------------------------------ | ---------------------------------------------------------------------------- |
+| Client holds | A random ID, meaningless alone | The data itself, signed                                                      |
+| Per request  | One database lookup            | Verify the signature only                                                    |
+| Revoke       | Delete the row: instant        | Valid until it expires (unless you add a blocklist, which is a lookup again) |
+| Stale data   | No, looked up fresh            | Yes, e.g. an old role stays in old tokens                                    |
 
 - JWTs are usually **signed, not encrypted**: anyone can read the payload; the signature only stops changes.
 
@@ -206,7 +208,6 @@ A **JWT** (JSON Web Token) holds the user's details itself (`{"user_id":…,"exp
   **Worked example.** The server issues a token with payload `{"user_id":"1"}` and signature `X`. An attacker changes the payload to `{"user_id":"2"}` but keeps `X`. The server recalculates the signature over `{"user_id":"2"}` and gets `Y`, a different value, so it rejects the token. To make a matching signature for the new payload, the attacker would need the secret key, which never leaves the server.
 
   **Common mix-ups:**
-
   1. The signature is made from the **header and payload**, not "payload and signature". The signature doesn't exist yet when it's being calculated.
   2. The **secret is never attached** to the JWT. Only the result of the hash, the signature, goes on the token. The secret never leaves the server. If it were attached, anyone could use it to sign their own tokens.
   3. On the way back, the server **hashes the header and payload with its secret**, then compares the result with the signature on the token.
@@ -223,6 +224,7 @@ A **JWT** (JSON Web Token) holds the user's details itself (`{"user_id":…,"exp
   **One secret for every user.** The secret is a single value stored in an environment variable on the server (e.g. `JWT_SECRET` in `.env`, read at startup like `DB_PASSWORD`), so the same secret signs every user's token. Each token's signature still differs, because each payload differs: `hash({"user_id":"1"}, secret)` gives `X`, `hash({"user_id":"2"}, secret)` gives `Y`. Never put the secret in code, git or the database: anyone who has it can forge a token for any user.
 
   So a signature proves the payload is **unchanged and came from the server**, but it doesn't hide it. Never put secrets in a JWT payload.
+
 - **Access and refresh tokens (a JWT pattern):** they exist to fix JWT's revocation problem.
   - **Access token:** a short-lived JWT (e.g. 15 minutes), sent on every request and checked with no database lookup.
   - **Refresh token:** a long-lived random token (e.g. 30 days) **stored in the database**. When the access token expires, the client sends the refresh token to get a new one.
@@ -304,7 +306,7 @@ Without a transaction, if the server crashes between 1 and 2, the card is in `do
 ACID is the four guarantees a transaction gives:
 
 - **Atomicity:** all or nothing. A failure part-way undoes every earlier statement.
-- **Consistency:** constraints (`NOT NULL`, `UNIQUE`, `FOREIGN KEY`) hold at the end, or the transaction fails.
+- **Consistency:** constraints (`NOT NULL`, `UNIQUE`, `FOREIGN KEY`) hold at the end, or the transaction fails. _Essentially, if any constraint violation occurs, then the whole transaction fails_.
 - **Isolation:** other connections don't see half-finished changes. How strictly is set by the isolation level (step 5).
 - **Durability:** once `COMMIT` returns, the change survives a crash or power cut.
 
@@ -373,15 +375,15 @@ Step 1 also uses `SELECT ... FOR UPDATE`, which locks the card row until commit.
 
 The store returns three kinds of result, and the handler turns each into a response:
 
-| Store returns | Meaning | Response |
-| --- | --- | --- |
-| `true, nil` | committed | `204` |
-| `false, nil` | card missing or not yours | `404 CARD_NOT_FOUND` |
-| `ErrColumnNotFound` | destination column missing or not yours | `404 COLUMN_NOT_FOUND` |
-| any other error | `BeginTx`, a query, or `Commit` failed | `500 INTERNAL_ERROR` (logged) |
+| Store returns       | Meaning                                 | Response                      |
+| ------------------- | --------------------------------------- | ----------------------------- |
+| `true, nil`         | committed                               | `204`                         |
+| `false, nil`        | card missing or not yours               | `404 CARD_NOT_FOUND`          |
+| `ErrColumnNotFound` | destination column missing or not yours | `404 COLUMN_NOT_FOUND`        |
+| any other error     | `BeginTx`, a query, or `Commit` failed  | `500 INTERNAL_ERROR` (logged) |
 
 In every failure case the deferred `Rollback` has already undone the work, so the database is unchanged. The client never gets a half-done move.
 
-`ErrColumnNotFound` is a sentinel error: a package-level `var` the handler checks with `errors.Is`. That way the store reports *what* went wrong without knowing about HTTP status codes.
+`ErrColumnNotFound` is a sentinel error: a package-level `var` the handler checks with `errors.Is`. That way the store reports _what_ went wrong without knowing about HTTP status codes.
 
 Go syntax lives in `LEARNING_GO.md`.
