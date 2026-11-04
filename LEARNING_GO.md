@@ -148,15 +148,44 @@ var payload struct {
 
 ### Pointers
 
-A pointer holds the address of a value. `&x` gets the address; `*T` is the type "pointer to T".
+A pointer is a variable that holds **where** another value is stored (its address), not the value itself.
+
+Three pieces of syntax:
+
+| You write | Meaning |
+| --- | --- |
+| `&x` | the address of `x` |
+| `*int` | a type: "pointer to an int" |
+| `*p` | the value at the address in `p` |
+
+```go
+x := 5
+p := &x      // p holds x's address. p's type is *int
+*p           // 5: the value at that address
+*p = 10      // change the value at that address
+x            // 10: x changed, because p points to x
+```
+
+**Why use one:** a function gets a copy of what you pass it. Pass a pointer and it can change your original.
+
+```go
+func double(n int)      { n = n * 2 }     // changes its own copy only
+func doublePtr(n *int)  { *n = *n * 2 }   // changes the original
+
+x := 5
+double(x)      // x is still 5
+doublePtr(&x)  // x is now 10
+```
+
+A pointer that points to nothing is `nil`. Reading `*p` when `p` is `nil` panics.
+
+In this codebase:
 
 ```go
 json.NewDecoder(r.Body).Decode(&user)   // pass a pointer so Decode can fill user in
 Position *int `json:"position"`          // nil = missing; 0 = really zero
 return &PostgresStore{db: db}, nil       // return a pointer to a new struct
 ```
-
-- Without a pointer, a function gets a **copy** and can't change your variable.
 
 ### Arrays
 

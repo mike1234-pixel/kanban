@@ -212,6 +212,20 @@ So it can fill in the original `user`. Without a pointer it would get a copy.
 `nil` means "missing", which an `int` can't express: its zero value `0` might be a real value.
 </details>
 
+**25a.** `p` is a pointer. What does `*p` give you?
+
+<details><summary>Answer</summary>
+
+The value at the address `p` holds.
+</details>
+
+**25b.** What happens if you read `*p` when `p` is `nil`?
+
+<details><summary>Answer</summary>
+
+It panics.
+</details>
+
 ### Arrays
 
 **26.** What's the difference between an array and a slice?
