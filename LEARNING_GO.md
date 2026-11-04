@@ -206,11 +206,15 @@ mid[0] = 99     // s is now [10 99 30 40]
 Key → value lookup: `map[K]V`.
 
 ```go
-colMap := make(map[string]int)   // make creates an empty, usable map
-colMap[c.ID] = len(columns)      // set
-i, ok := colMap[id]              // get; ok is false if the key is missing
-delete(colMap, id)               // remove a key; nothing happens if it isn't there
-len(colMap)                      // number of keys
+ages := make(map[string]int)   // keys are strings, values are ints; make creates an empty, usable map
+
+ages["ada"] = 36               // store 36 under the key "ada"
+ages["bo"] = 29                // store 29 under the key "bo"
+
+ages["ada"]                    // 36
+age, ok := ages["cy"]          // 0, false: ok is false if the key is missing
+delete(ages, "bo")             // remove a key; nothing happens if it isn't there
+len(ages)                      // 1: the number of keys
 ```
 
 - Writing to a `nil` map panics, so create it with `make` or a literal (`map[string]int{}`).
