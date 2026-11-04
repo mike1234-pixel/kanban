@@ -140,6 +140,10 @@ var payload struct {
 }
 ```
 
+- **Two ways to reach an embedded field:**
+  - `payload.Name`: the short form. Go finds `Name` inside the embedded `User`. This is the usual way, and the point of embedding.
+  - `payload.User.Name`: the full form. The embedded field has no name you wrote, so Go names it after its type (`User`).
+- Use the full form when both structs have a field with the same name: the short form then means the outer struct's field.
 - Embedding is not inheritance: `payload` *contains* a `User` (`payload.User`); it isn't one.
 
 ### Pointers

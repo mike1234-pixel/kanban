@@ -182,6 +182,13 @@ Pulls its fields and methods into the outer struct, so `payload.Name` works when
 No. The outer struct *contains* the embedded value; it isn't one.
 </details>
 
+**22a.** `payload` embeds `models.User`. What are the two ways to read the user's `Name`?
+
+<details><summary>Answer</summary>
+
+`payload.Name` (short form, the usual one) or `payload.User.Name` (full form: the embedded field is named after its type).
+</details>
+
 ### Pointers
 
 **23.** What do `&x` and `*T` mean?
