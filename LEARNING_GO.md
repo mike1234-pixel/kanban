@@ -267,16 +267,28 @@ Assigning a struct or an array copies its values. Assigning a slice or a map cop
 
 ### Type assertions
 
-Get the concrete type back out of an `any` (or other interface) value: `value.(Type)`.
+A type assertion asks: "is the value inside this `any` really a `string` (or some other type)? If so, give it to me as one."
+
+**Why you need it:** once a value is stored as `any`, Go no longer knows its type, so you can't use it as that type:
 
 ```go
-user, ok := ctx.Value(userKey).(models.User)
+var v any = "hello"
+
+v + " world"          // doesn't compile: Go doesn't know v is a string
 ```
 
-| Stored value | `user` | `ok` |
-| --- | --- | --- |
-| a `models.User` | that user | `true` |
-| something else, or nothing | `models.User{}` (zero value) | `false` |
+**The assertion checks the type and gives the value back with its type:**
+
+```go
+s, ok := v.(string)   // s = "hello", ok = true: it was a string
+n, ok := v.(int)      // n = 0,       ok = false: it wasn't an int
+
+s + " world"          // works: s is a string
+```
+
+If the check fails, you get the type's zero value and `ok = false`.
+
+In this codebase: `ctx.Value(userKey)` returns `any`, so `userFromContext` uses `ctx.Value(userKey).(models.User)` to get the user back out.
 
 - Always use the `, ok` form. Without it (`ctx.Value(userKey).(models.User)` alone), a wrong type panics.
 - Same comma-ok shape as a map lookup: `v, ok := m[key]`.
@@ -373,7 +385,7 @@ return nil, fmt.Errorf("failed to ping postgres: %w", err)
 ```
 
 - `errors.Is` sees through wrapping to a specific error **value**.
-- `errors.As` finds an error of a specific **type** and gives you it: `var pqErr *pq.Error; errors.As(err, &pqErr)`.
+- `errors.As` checks if an error is a specific **type** and, if so, puts it in your variable: `var pqErr *pq.Error; errors.As(err, &pqErr)`.
 
 ## Testing
 
