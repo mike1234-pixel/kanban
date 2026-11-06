@@ -452,7 +452,7 @@ Wraps the original error, adding context while keeping it findable with `errors.
 
 <details><summary>Answer</summary>
 
-`errors.Is` checks for a specific error **value** (e.g. `ErrEmailTaken`). `errors.As` finds an error of a specific **type** (e.g. `*pq.Error`) and gives it to you.
+`errors.Is` checks for a specific error **value** (e.g. `ErrEmailTaken`). `errors.As` checks if an error is a specific **type** (e.g. `*pq.Error`) and, if so, puts it in your variable.
 </details>
 
 ## Testing

@@ -51,6 +51,7 @@ Rules the database enforces on every write, whatever the Go code does.
 | `CHECK (position >= 0)` | Must make the expression true | `23514` |
 | `DEFAULT NOW()` | Value used when the insert doesn't give one | (not a rule) |
 
+- `CHECK` is a rule you write yourself; Postgres refuses any row that breaks it. `CHECK (position >= 0)` means a column's position can't be negative: inserting `2` works, inserting `-1` fails.
 - `ON DELETE CASCADE` on a foreign key: deleting the parent row also deletes the rows that reference it (board → columns → cards; user → sessions).
 - **Error codes starting with `23` are all constraint violations.** Worth knowing by heart: `23505` (unique), the most common. Look the rest up in the Postgres docs ("Appendix A: PostgreSQL Error Codes").
 - In Go, never write a code bare: give it a named constant, e.g. `uniqueViolation = "23505"` in `store/postgres.go`.

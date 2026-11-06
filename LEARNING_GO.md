@@ -281,7 +281,7 @@ v + " world"          // doesn't compile: Go doesn't know v is a string
 
 ```go
 s, ok := v.(string)   // s = "hello", ok = true: it was a string
-n, ok := v.(int)      // n = 0,       ok = false: it wasn't an int
+n, ok := v.(int)      // n = 0,       ok = false: it wasn't an int, so n gets int's zero value
 
 s + " world"          // works: s is a string
 ```
@@ -366,6 +366,18 @@ if err != nil {
 ```
 
 - No exceptions: errors go up the call chain by being returned.
+- **Error vs exception:** an exception (TypeScript's `throw`) jumps out of the function by itself, up to whichever `try/catch` is waiting. A Go error is just a return value: nothing jumps, and each caller has to check it and pass it on.
+
+  ```ts
+  const user = getUser(id)           // TypeScript: if this throws, the next line never runs
+  ```
+
+  ```go
+  user, err := getUser(id)           // Go: the error comes back like any other value
+  if err != nil {
+  	return err                     // you pass it up yourself
+  }
+  ```
 
 ### Sentinel errors
 
