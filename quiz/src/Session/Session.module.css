@@ -1,0 +1,54 @@
+.session { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+
+.topBar { display: flex; justify-content: space-between; align-items: center; }
+.back { padding: 8px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); cursor: pointer; font-size: 16px; }
+.score { display: flex; gap: 8px; }
+.score span { padding: 6px 12px; border-radius: 99px; font-size: 16px; font-weight: 700; }
+.gotScore { background: var(--right-bg); color: var(--right); }
+.missedScore { background: var(--wrong-bg); color: var(--wrong); }
+
+.where { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 22px 0 10px; }
+.deckName { padding: 3px 10px; border-radius: 7px; background: var(--accent); color: white; font-size: 14px; font-weight: 700; }
+.label { font-weight: 700; }
+.counter { margin-left: auto; color: var(--muted); font-size: 16px; }
+.progress { height: 8px; overflow: hidden; border-radius: 99px; background: var(--line); }
+.progress span { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width .3s ease; }
+
+.card { margin-top: 20px; padding: 26px 28px 28px; border: 1px solid var(--line); border-top: 7px solid var(--accent); border-radius: 18px; background: var(--surface); box-shadow: 0 10px 34px rgba(31,33,51,.07); }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
+.number { padding: 3px 10px; border-radius: 8px; background: var(--tint); color: var(--ink); font-size: 15px; font-weight: 700; }
+.topic { color: var(--ink); font-size: 16px; font-weight: 700; }
+.question { margin-bottom: 22px; font-size: 24px; font-weight: 600; line-height: 1.45; }
+
+.options { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.option { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 2px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 18px; line-height: 1.45; text-align: left; transition: border-color .15s ease, background .15s ease; }
+.option:hover:not(:disabled) { border-color: var(--accent); background: var(--tint); }
+.option:disabled { cursor: default; }
+.letter { display: grid; flex-shrink: 0; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--tint); color: var(--ink); font-size: 17px; font-weight: 700; }
+.right { border-color: var(--right); background: var(--right-bg); }
+.right .letter { background: var(--right); color: white; }
+.wrong { border-color: var(--wrong); background: var(--wrong-bg); }
+.wrong .letter { background: var(--wrong); color: white; }
+.faded { opacity: .5; }
+
+.explain { margin-top: 22px; padding: 18px 20px; border-left: 6px solid; border-radius: 12px; }
+.explainRight { border-color: var(--right); background: var(--right-bg); }
+.explainWrong { border-color: var(--wrong); background: var(--wrong-bg); }
+.verdict { margin: 0 0 10px; font-size: 18px; font-weight: 700; }
+.explainRight .verdict { color: var(--right); }
+.explainWrong .verdict { color: var(--wrong); }
+/* The correct option is the key idea, so it gets the yellow highlighter. */
+.keyIdea { margin: 0 0 12px; font-size: 20px; font-weight: 700; line-height: 1.5; }
+.keyText { padding: 2px 6px; border-radius: 4px; background: var(--key-bg); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.answer { font-size: 17px; line-height: 1.65; }
+
+.footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px; margin-top: 20px; }
+.next { min-width: 150px; padding: 14px 22px; border: 0; border-radius: 14px; background: var(--accent); color: white; cursor: pointer; font-size: 18px; font-weight: 700; }
+.next:disabled { opacity: .35; cursor: default; }
+
+@media (max-width: 560px) {
+  .card { padding: 20px 16px; }
+  .question { font-size: 21px; }
+  .option { font-size: 17px; }
+  .counter { margin-left: 0; }
+}

@@ -1,0 +1,6 @@
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; }
+.legend code, .legend strong { padding: 3px 10px; border-radius: 6px; font-family: 'JetBrains Mono', Menlo, monospace; font-size: 13px; font-weight: 700; }
+.legend :global(.kind-http) { background: var(--http-bg); color: var(--http-ink); }
+.legend :global(.kind-sql) { background: var(--sql-bg); color: var(--sql-ink); }
+.legend :global(.kind-go) { background: var(--go-bg); color: var(--go-ink); }
+.legend strong { background: var(--key-bg); color: var(--text); font-family: inherit; }

@@ -1,0 +1,4 @@
+.bar { display: flex; height: 10px; overflow: hidden; border-radius: 99px; background: var(--line); }
+.thin { height: 5px; }
+.got { background: var(--right); transition: width .3s ease; }
+.missed { background: var(--wrong); transition: width .3s ease; }

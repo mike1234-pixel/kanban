@@ -124,6 +124,8 @@ Work through the roadmap in order, one step at a time:
 
 - Questions test recall of concepts, not predicting what code does by reading it.
 - Keep each question short, with a short answer in a collapsible `<details>` block.
+- Every question also has four options for the quiz app, as a task list between the question and the `<details>`: `- [x]` marks the one correct option, `- [ ]` the three wrong ones. Make the wrong ones believable (common mistakes, including ones I've made), keep all four a similar length, and vary where the correct one sits.
+- Put the key idea in **bold** in answers when one phrase matters most: the quiz app shows bold with a yellow highlighter.
 - When an entry is added to any `LEARNING*.md` file, add 2-3 matching questions to its quiz file under the same heading.
 - When quizzing me: one question at a time, keep a running score, and briefly explain any miss before moving on.
 
@@ -156,6 +158,7 @@ Run all backend commands from `backend/`.
 | Format                      | `gofmt -w .`               |
 | Vet                         | `go vet ./...`             |
 | Frontend (from `frontend/`) | `pnpm install && pnpm dev` |
+| Quiz app (from `quiz/`)     | `pnpm install && pnpm dev` (port 5174) |
 
 Database connection settings come from `backend/.env` (`DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_SSLMODE`).
 
@@ -171,6 +174,8 @@ backend/
   internal/handlers/      one handler struct per resource, plus handlers_test.go
   docker-compose.yml      local Postgres
 frontend/                 React + TypeScript (Vite), proxies API routes to :8080
+quiz/                     multiple-choice quiz app that reads the QUIZ*.md files; keep their format
+                          (`##` section, `###` topic, `**N.**` question, `- [x]`/`- [ ]` options, <details> answer)
 ```
 
 New resources follow the board pattern: model → `Store` interface methods → `store/<resource>.go` → `handlers/<resource>.go` → routes in `main.go` → fake-store methods and tests in `handlers_test.go`.

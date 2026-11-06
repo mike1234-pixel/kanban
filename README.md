@@ -100,6 +100,18 @@ pnpm dev
 
 Open the local URL printed by Vite (usually `http://localhost:5173`). Vite proxies `/boards`, `/columns`, and `/cards` requests to the API on port 8080.
 
+## Quiz app
+
+`quiz/` is a separate multiple-choice app for the learning quizzes. It reads `QUIZ.md`, `QUIZ_GO.md` and `QUIZ_SQL.md` straight from the repository root, so new questions appear without any extra step. It doesn't need the API or Postgres.
+
+```sh
+cd quiz
+pnpm install
+pnpm dev
+```
+
+Open `http://localhost:5174`. Results are saved in the browser's local storage.
+
 ## Production build
 
 Build the frontend from `frontend/`:

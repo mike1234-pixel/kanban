@@ -1,0 +1,25 @@
+/* Readability first (dyslexia-friendly): Lexend, large text, generous line
+   height, a cream background instead of pure white, and no italics. */
+:global(:root) {
+  --bg: #faf7f0;
+  --surface: #ffffff;
+  --text: #22252f;
+  --muted: #646a7a;
+  --line: #e6e2d8;
+  --right: #1e8a56;
+  --right-bg: #e3f5eb;
+  --wrong: #c8393f;
+  --wrong-bg: #fbe7e7;
+  --key-bg: #ffeb7a;
+  --http-bg: #ebe6ff;
+  --http-ink: #4a33c4;
+  --sql-bg: #ffe9d6;
+  --sql-ink: #9c4410;
+  --go-bg: #d9f2f6;
+  --go-ink: #035f6d;
+}
+:global(*) { box-sizing: border-box; }
+:global(body) { margin: 0; min-width: 320px; min-height: 100vh; color: var(--text); background: var(--bg); font-family: Lexend, 'Segoe UI', sans-serif; font-size: 18px; line-height: 1.6; letter-spacing: .01em; -webkit-font-smoothing: antialiased; }
+:global(button), :global(input) { font: inherit; letter-spacing: inherit; }
+:global(button:focus-visible) { outline: 3px solid var(--accent, #4a33c4); outline-offset: 2px; }
+.app { min-height: 100vh; }
