@@ -23,8 +23,8 @@ Goal: finish by the end of April 2027, about two weeks per step. Step sizes vary
 | Dates | Step |
 | --- | --- |
 | 21 Sep – 26 Oct 2026 | 1–3 ✅ |
-| 27 Oct – 1 Nov | Revision: step 3, SQL, Go weak spots |
-| 2 – 15 Nov | 4. Transactions |
+| 27 Oct – 1 Nov | Revision: step 3, SQL, Go weak spots ✅ |
+| 2 – 15 Nov | 4. Transactions ✅ |
 | 16 – 29 Nov | 5. Concurrency |
 | 30 Nov – 13 Dec | 6. Database tooling + migrations |
 | 14 Dec – 3 Jan 2027 | 7. WebSockets (3 weeks, includes holidays) |
