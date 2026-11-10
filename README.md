@@ -77,6 +77,20 @@ CREATE TABLE sessions (
 
 The API creates the `card_movements` table automatically when it connects.
 
+If your `card_movements` table was created before it had foreign keys, add them once by hand. The `DELETE` first removes history rows whose card or column no longer exists, because Postgres won't add a foreign key while rows break it:
+
+```sql
+DELETE FROM card_movements m
+WHERE NOT EXISTS (SELECT 1 FROM cards c WHERE c.id = m.card_id)
+   OR NOT EXISTS (SELECT 1 FROM columns col WHERE col.id = m.from_column_id)
+   OR NOT EXISTS (SELECT 1 FROM columns col WHERE col.id = m.to_column_id);
+
+ALTER TABLE card_movements
+  ADD FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+  ADD FOREIGN KEY (from_column_id) REFERENCES columns(id) ON DELETE CASCADE,
+  ADD FOREIGN KEY (to_column_id) REFERENCES columns(id) ON DELETE CASCADE;
+```
+
 ### 2. Start the API
 
 In a terminal, from the repository root:

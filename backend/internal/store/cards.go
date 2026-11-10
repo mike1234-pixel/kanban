@@ -142,6 +142,11 @@ func (s *PostgresStore) MoveCard(ctx context.Context, id, columnID, ownerID stri
 	if err != nil {
 		return false, err
 	}
+	// Already there: nothing to change or record. The deferred Rollback ends
+	// the transaction.
+	if fromColumnID == columnID {
+		return true, nil
+	}
 
 	var canMoveThere bool
 	err = tx.QueryRowContext(ctx, `

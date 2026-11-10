@@ -39,9 +39,9 @@ func NewPostgresStore(connStr string) (*PostgresStore, error) {
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS card_movements (
 			id BIGSERIAL PRIMARY KEY,
-			card_id UUID NOT NULL,
-			from_column_id UUID NOT NULL,
-			to_column_id UUID NOT NULL,
+			card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+			from_column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
+			to_column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
 			moved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)
 	`); err != nil {
