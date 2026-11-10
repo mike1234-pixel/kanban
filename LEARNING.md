@@ -361,13 +361,13 @@ Request: `POST /cards/c1/move` with `{"column_id": "done"}`. Success is `204`.
 
 Inside one transaction, `store.MoveCard`:
 
-1. Reads the card's current column (`todo`), checking via `boards.owner_id` that it's yours.
+1. Reads the card's current column (`todo`), checking via `boards.owner_id` that it's yours. If it's already in the destination column, it stops here and returns success: nothing is changed or recorded, and the deferred `Rollback` ends the transaction.
 2. Checks the destination column exists and is on one of your boards.
 3. `UPDATE cards` to the new column.
 4. `INSERT INTO card_movements` with `from_column_id = todo`, `to_column_id = done`.
 5. `Commit`.
 
-`card_movements` is an append-only history: rows are added, never updated. Step 1 needs the old column before it's overwritten, which is why the read happens inside the same transaction.
+`card_movements` is an append-only history: rows are added, never updated. Its foreign keys use `ON DELETE CASCADE`, so deleting a card (or a column) also deletes its history rows. Step 1 needs the old column before it's overwritten, which is why the read happens inside the same transaction.
 
 Step 1 also uses `SELECT ... FOR UPDATE`, which locks the card row until commit. That's for two people moving the same card at once (step 5).
 

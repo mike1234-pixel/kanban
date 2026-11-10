@@ -18,6 +18,18 @@ Recall questions on `LEARNING_SQL.md`. Try answering before opening each answer.
 It does nothing if the table already exists, instead of failing.
 </details>
 
+**1a.** You add a foreign key to a `CREATE TABLE IF NOT EXISTS`. Why doesn't your existing database get it?
+
+- [ ] Foreign keys only apply to new rows
+- [x] `IF NOT EXISTS` never changes a table that's already there
+- [ ] Postgres needs restarting first
+- [ ] Foreign keys can only be added with `CREATE INDEX`
+
+<details><summary>Answer</summary>
+
+`IF NOT EXISTS` skips a table that already exists, so it's never changed. An existing table needs **`ALTER TABLE … ADD FOREIGN KEY`**.
+</details>
+
 ### Column types
 
 **2.** What's the difference between `VARCHAR(100)` and `TEXT`?

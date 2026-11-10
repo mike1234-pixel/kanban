@@ -967,13 +967,25 @@ The history row needs `from_column_id`, and it must be read before the `UPDATE` 
 **77.** What does "append-only" mean for `card_movements`?
 
 - [ ] Rows are added to the end of the file on disk
-- [x] Rows are only added, never updated or deleted
+- [x] The app only adds rows; it never changes them
 - [ ] Rows can be updated but not deleted
 - [ ] Rows are deleted after each move
 
 <details><summary>Answer</summary>
 
-Rows are only ever added, never updated or deleted. It's a history log.
+The app only ever adds rows; it never updates them. It's a history log. (Rows are deleted only when their card is, through `ON DELETE CASCADE`.)
+</details>
+
+**77a.** What does `MoveCard` do when the card is already in the destination column?
+
+- [ ] Writes a history row from `todo` to `todo`
+- [ ] Returns `409 Conflict`
+- [x] Returns success and writes nothing
+- [ ] Returns `404 COLUMN_NOT_FOUND`
+
+<details><summary>Answer</summary>
+
+Returns success (`204`) and writes nothing: the card is already where the client asked. The deferred `Rollback` ends the transaction.
 </details>
 
 ### Mapping transaction failures to API errors

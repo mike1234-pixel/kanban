@@ -27,6 +27,7 @@ CREATE TABLE users (
   If it doesn't exist, both create it. A name can never be used by two tables.
 - The API uses `IF NOT EXISTS` for `card_movements` on startup; without it, the second `go run .` would fail.
 - `ALTER TABLE users ADD COLUMN …` changes an existing table.
+- `IF NOT EXISTS` never changes a table that's already there. Adding a rule to the `CREATE TABLE` only affects new databases; an existing one needs `ALTER TABLE`, e.g. `ALTER TABLE card_movements ADD FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE`. Adding a constraint fails if existing rows already break it.
 
 ### Column types
 
