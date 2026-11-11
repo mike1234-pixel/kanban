@@ -125,6 +125,7 @@ Work through the roadmap in order, one step at a time:
 - Questions test recall of concepts, not predicting what code does by reading it.
 - Keep each question short, with a short answer in a collapsible `<details>` block.
 - Every question also has four options for the quiz app, as a task list between the question and the `<details>`: `- [x]` marks the one correct option, `- [ ]` the three wrong ones. Make the wrong ones believable (common mistakes, including ones I've made), keep all four a similar length, and vary where the correct one sits.
+- The `<details>` answer must add insight, not restate the correct option: explain why it's right, with a short concrete example (real values from this codebase), in 2–4 lines.
 - Put the key idea in **bold** in answers when one phrase matters most: the quiz app shows bold with a yellow highlighter.
 - When an entry is added to any `LEARNING*.md` file, add 2-3 matching questions to its quiz file under the same heading.
 - When quizzing me: one question at a time, keep a running score, and briefly explain any miss before moving on.

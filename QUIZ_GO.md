@@ -15,7 +15,9 @@ Recall questions on the syntax in `LEARNING_GO.md`. Try answering before opening
 
 <details><summary>Answer</summary>
 
-`main`.
+`go run .` looks for **`package main` with a `func main()`** and starts there.
+
+Example: `backend/main.go` is `package main`. Every other folder (`store`, `handlers`) has its own name and can only be imported, not run.
 </details>
 
 **2.** What does `_` in front of an import mean?
@@ -27,7 +29,9 @@ Recall questions on the syntax in `LEARNING_GO.md`. Try answering before opening
 
 <details><summary>Answer</summary>
 
-Import it only for its side effects, e.g. registering a database driver. You don't use its names directly.
+Example: `import _ "github.com/lib/pq"`. You never write `pq.Something`, but importing it **registers the `postgres` driver**, so `sql.Open("postgres", …)` works.
+
+Without the `_`, Go refuses to compile, because unused imports are an error.
 </details>
 
 ### Exported vs unexported
@@ -41,7 +45,9 @@ Import it only for its side effects, e.g. registering a database driver. You don
 
 <details><summary>Answer</summary>
 
-Starting it with a capital letter.
+There's no `public`/`private` keyword: **the first letter decides**.
+
+Example: in package `store`, `ErrEmailTaken` can be used as `store.ErrEmailTaken` from `handlers`. A lowercase `uniqueViolation` can only be used inside `store`.
 </details>
 
 **4.** Why can't `encoding/json` see a lowercase struct field?
@@ -53,7 +59,9 @@ Starting it with a capital letter.
 
 <details><summary>Answer</summary>
 
-It's unexported, and `encoding/json` is a different package.
+`encoding/json` reads your struct from outside your package, so it follows the same rule as any other package: **lowercase names are hidden**.
+
+Example: `type Board struct { title string }` encodes as `{}`. No error, the field is just missing.
 </details>
 
 ### Variables
@@ -67,7 +75,9 @@ It's unexported, and `encoding/json` is a different package.
 
 <details><summary>Answer</summary>
 
-`:=` declares and assigns, inferring the type. `var x int` declares `x` with the zero value, `0`.
+Example: `count := 5` makes an `int` set to `5`, with **the type worked out from the value**. `var count int` makes an `int` set to `0`.
+
+Use `:=` when you have a value now; `var` when you'll fill it in later, like `var c models.Card` before `Scan(&c.ID, …)`.
 </details>
 
 **6.** Where can't you use `:=`?
@@ -79,7 +89,9 @@ It's unexported, and `encoding/json` is a different package.
 
 <details><summary>Answer</summary>
 
-Outside functions, at package level. Use `var` there.
+`:=` only works inside functions. **At package level, every declaration starts with a keyword** (`var`, `const`, `func`, `type`).
+
+Example: `var dummyHash, _ = bcrypt.GenerateFromPassword(…)` in `auth.go` is at package level, so it uses `var`.
 </details>
 
 ### Zero values
@@ -93,7 +105,9 @@ Outside functions, at package level. Use `var` there.
 
 <details><summary>Answer</summary>
 
-The value Go gives a variable when you don't set one. Every variable always has a value.
+Example: `var n int` is `0`, not undefined. `var c models.Card` is a card with every field empty.
+
+There's no `undefined` like in TypeScript: **every variable always has a usable value**.
 </details>
 
 **8.** What are the zero values of `int`, `string` and `bool`?
@@ -105,7 +119,9 @@ The value Go gives a variable when you don't set one. Every variable always has 
 
 <details><summary>Answer</summary>
 
-`0`, `""` and `false`.
+Example: `var c models.Card` gives `c.Order == 0`, `c.Title == ""`.
+
+That's why `GetCardByID` can return `models.Card{}` for "not found": the handler checks **`card.ID == ""`**.
 </details>
 
 **9.** What is the zero value of a pointer, slice, map or error?
@@ -117,7 +133,9 @@ The value Go gives a variable when you don't set one. Every variable always has 
 
 <details><summary>Answer</summary>
 
-`nil`.
+These types **point to something**, and `nil` means they don't point to anything yet.
+
+Example: `var err error` is `nil`, meaning no error. `var m map[string]int` is `nil`, so writing to it panics.
 </details>
 
 ### Constants
@@ -131,7 +149,9 @@ The value Go gives a variable when you don't set one. Every variable always has 
 
 <details><summary>Answer</summary>
 
-`const`.
+Example: `const uniqueViolation = "23505"`. Trying `uniqueViolation = "x"` **won't compile**.
+
+It gives a magic value a name, so code reads `pqErr.Code == uniqueViolation` instead of `== "23505"`.
 </details>
 
 ### Multiple return values
@@ -145,7 +165,9 @@ The value Go gives a variable when you don't set one. Every variable always has 
 
 <details><summary>Answer</summary>
 
-The last one.
+Example: `func (s *PostgresStore) GetBoard(…) (models.Board, error)`.
+
+Because it's always last, **anyone reading `x, err := f()` knows where to look** without checking the function.
 </details>
 
 **12.** How do you ignore a return value you don't need?
@@ -157,7 +179,9 @@ The last one.
 
 <details><summary>Answer</summary>
 
-Assign it to `_`.
+Go won't compile if you declare a variable and never use it. **`_` throws the value away.**
+
+Example: `res, _ := …` would ignore an error, which is rarely a good idea. `for _, card := range cards` ignores the index, which is common.
 </details>
 
 ### `if` and `for`
@@ -171,7 +195,9 @@ Assign it to `_`.
 
 <details><summary>Answer</summary>
 
-Only inside the `if` (and any `else`).
+Example: `if err := tx.Commit(); err != nil { return err }`. After the closing `}`, `err` **no longer exists**.
+
+That keeps a short-lived variable from leaking into the rest of the function and clashing with other `err`s.
 </details>
 
 **14.** How many loop keywords does Go have?
@@ -183,7 +209,13 @@ Only inside the `if` (and any `else`).
 
 <details><summary>Answer</summary>
 
-One: `for`. It also does the job of `while`.
+`for` does every loop job:
+
+- `for i := 0; i < 3; i++ { }`: a counting loop
+- `for rows.Next() { }`: a `while` loop
+- `for { }`: forever
+
+**One keyword, three forms.**
 </details>
 
 **15.** How do you loop over every element of a slice with its index?
@@ -195,7 +227,9 @@ One: `for`. It also does the job of `while`.
 
 <details><summary>Answer</summary>
 
-`for i, item := range items { }`.
+Example: for `cards := []string{"a", "b"}`, the loop runs with `i = 0, item = "a"` then `i = 1, item = "b"`.
+
+`for _, item := range cards` when you don't need **the index**, which is the usual case.
 </details>
 
 ### Type conversion
@@ -209,7 +243,9 @@ One: `for`. It also does the job of `while`.
 
 <details><summary>Answer</summary>
 
-`[]byte(s)`. The reverse is `string(b)`.
+Go never converts types for you; **you write the type as a function**.
+
+Example: bcrypt works on bytes, so `bcrypt.GenerateFromPassword([]byte(payload.Password), …)`. `string(b)` turns bytes back into text.
 </details>
 
 ## Types
@@ -225,7 +261,9 @@ One: `for`. It also does the job of `while`.
 
 <details><summary>Answer</summary>
 
-They get their zero values.
+Example: `models.Card{Title: "Fix bug"}` gives `Description: ""` and `Order: 0`.
+
+You **only write the fields you care about**; the rest are never undefined.
 </details>
 
 ### Struct tags
@@ -239,7 +277,9 @@ They get their zero values.
 
 <details><summary>Answer</summary>
 
-Sets the field's JSON key to `created_at`.
+Go names are `CreatedAt`, but JSON convention is `created_at`. **The tag maps one to the other**, both ways.
+
+Example: `` CreatedAt time.Time `json:"created_at"` `` encodes as `"created_at": "2026-11-11T…"`, and decodes from it too.
 </details>
 
 **19.** Which struct tag keeps a field out of JSON completely?
@@ -251,7 +291,9 @@ Sets the field's JSON key to `created_at`.
 
 <details><summary>Answer</summary>
 
-`json:"-"`.
+Example: `` PasswordHash string `json:"-"` `` on `models.User`. Encoding **skips it**, so a response can never include the hash.
+
+Decoding skips it too, so a client can't set it by sending `"PasswordHash"`.
 </details>
 
 ### Anonymous structs and embedding
@@ -265,7 +307,11 @@ Sets the field's JSON key to `created_at`.
 
 <details><summary>Answer</summary>
 
-A struct type with no name, declared where it's used. Handy for a request body that doesn't match a model exactly.
+Example: `POST /users` needs a password, but `models.User` has no `Password` field. So the handler decodes into:
+
+`` var payload struct { models.User; Password string `json:"password"` } ``
+
+**A type you only need in one place doesn't need a name.**
 </details>
 
 **21.** What does embedding a type in a struct do?
@@ -277,7 +323,9 @@ A struct type with no name, declared where it's used. Handy for a request body t
 
 <details><summary>Answer</summary>
 
-Pulls its fields and methods into the outer struct, so `payload.Name` works when `payload` embeds `models.User`.
+Example: `payload` embeds `models.User`, so `payload.Name` and `payload.Email` work **as if they were declared on `payload`**.
+
+It saves you copying every `User` field into the anonymous struct.
 </details>
 
 **22.** Is embedding the same as inheritance?
@@ -289,7 +337,9 @@ Pulls its fields and methods into the outer struct, so `payload.Name` works when
 
 <details><summary>Answer</summary>
 
-No. The outer struct *contains* the embedded value; it isn't one.
+Example: `payload` embeds `models.User`, but you **can't pass `payload` to a function that wants a `models.User`**. You pass `payload.User`.
+
+It's composition: `payload` *has* a user inside it; it isn't one.
 </details>
 
 **22a.** `payload` embeds `models.User`. What are the two ways to read the user's `Name`?
@@ -301,7 +351,9 @@ No. The outer struct *contains* the embedded value; it isn't one.
 
 <details><summary>Answer</summary>
 
-`payload.Name` (short form, the usual one) or `payload.User.Name` (full form: the embedded field is named after its type).
+The embedded field's name **is its type's name**, `User`. So the full form is `payload.User.Name`.
+
+`payload.Name` is the shortcut Go gives you, and it's what you'll usually write.
 </details>
 
 ### Pointers
@@ -315,7 +367,9 @@ No. The outer struct *contains* the embedded value; it isn't one.
 
 <details><summary>Answer</summary>
 
-`&x` is the address of `x`. `*T` is the type "pointer to T".
+Example: `x := 5`, `p := &x`. `p` holds **the address where `x` lives**, and its type is `*int`.
+
+The `*` in a type means "pointer to"; the `&` in front of a variable means "address of".
 </details>
 
 **24.** Why does `Decode(&user)` take a pointer?
@@ -327,7 +381,9 @@ No. The outer struct *contains* the embedded value; it isn't one.
 
 <details><summary>Answer</summary>
 
-So it can fill in the original `user`. Without a pointer it would get a copy.
+Go passes everything by copy. `Decode(user)` would fill **a copy that's thrown away**, leaving your `user` empty.
+
+`Decode(&user)` gives it the address, so it writes into your variable. `Scan(&c.ID)` works the same way.
 </details>
 
 **25.** Why use `*int` instead of `int` for an optional field?
@@ -339,7 +395,9 @@ So it can fill in the original `user`. Without a pointer it would get a copy.
 
 <details><summary>Answer</summary>
 
-`nil` means "missing", which an `int` can't express: its zero value `0` might be a real value.
+Example: `{"order": 0}` means "move to the top". `{}` means "don't change it". With `int`, **both decode to `0`** and look the same.
+
+With `*int`, `{}` gives `nil` and `{"order": 0}` gives a pointer to `0`.
 </details>
 
 **25a.** `p` is a pointer. What does `*p` give you?
@@ -351,7 +409,9 @@ So it can fill in the original `user`. Without a pointer it would get a copy.
 
 <details><summary>Answer</summary>
 
-The value at the address `p` holds.
+Example: `x := 5`, `p := &x`. `*p` is **`5`**. Writing `*p = 10` changes `x` to `10`.
+
+In a type, `*` means pointer; in front of a pointer variable, it means "go to the value".
 </details>
 
 **25b.** What happens if you read `*p` when `p` is `nil`?
@@ -363,7 +423,9 @@ The value at the address `p` holds.
 
 <details><summary>Answer</summary>
 
-It panics.
+`nil` points to nothing, so **there's no value to read**.
+
+Example: `var p *int`, then `fmt.Println(*p)` stops the program with `invalid memory address or nil pointer dereference`. Check `if p != nil` first.
 </details>
 
 ### Arrays
@@ -377,7 +439,9 @@ It panics.
 
 <details><summary>Answer</summary>
 
-An array has a fixed length that's part of its type (`[3]int`). A slice can grow, and points to an underlying array.
+Example: `[3]int` holds **exactly 3**, and `[4]int` is a different type. `[]int` holds any number and grows with `append`.
+
+You'll almost always use slices. Arrays mostly exist as what slices are built on.
 </details>
 
 **27.** What happens when you assign one array to another variable and change the copy?
@@ -389,7 +453,9 @@ An array has a fixed length that's part of its type (`[3]int`). A slice can grow
 
 <details><summary>Answer</summary>
 
-The original doesn't change. Assigning an array copies every element.
+Example: `a := [3]int{1, 2, 3}`, `b := a`, `b[0] = 99`. `a` is still `[1 2 3]`: **`b` got its own copy** of every element.
+
+Slices are different: `b := s` shares the same elements.
 </details>
 
 ### Slices
@@ -403,7 +469,9 @@ The original doesn't change. Assigning an array copies every element.
 
 <details><summary>Answer</summary>
 
-`append` returns the new slice; the old variable isn't updated.
+When the slice is full, `append` **makes a new, bigger array** and returns a slice pointing to it. Your old `cards` variable still points to the old one.
+
+Writing `append(cards, c)` on its own won't compile, because Go rejects an unused result.
 </details>
 
 **29.** How do you get a slice's length?
@@ -415,7 +483,9 @@ The original doesn't change. Assigning an array copies every element.
 
 <details><summary>Answer</summary>
 
-`len(s)`.
+Example: `cards := []string{"a", "b"}`, `len(cards)` is **`2`**.
+
+It's a built-in function, not a method: `len(cards)`, not `cards.length` like in TypeScript.
 </details>
 
 **30.** What are a slice's length and capacity?
@@ -427,7 +497,9 @@ The original doesn't change. Assigning an array copies every element.
 
 <details><summary>Answer</summary>
 
-Length: how many elements are in use. Capacity: how much room the underlying array has before `append` must make a bigger one.
+Example: `s := make([]int, 2, 5)` has 2 elements in use and **room for 3 more**. The next 3 `append`s reuse the array; the 4th makes a bigger one and copies everything.
+
+Length is what you see; capacity is spare room.
 </details>
 
 **31.** Does slicing (`s[1:3]`) copy the elements? What follows from that?
@@ -439,7 +511,9 @@ Length: how many elements are in use. Capacity: how much room the underlying arr
 
 <details><summary>Answer</summary>
 
-No. The new slice points into the same underlying array, so changing an element through it changes the original too. Use `copy` or `slices.Clone` for an independent copy.
+Example: `a := []int{1, 2, 3}`, `b := a[0:2]`, `b[0] = 99`. Now **`a` is `[99 2 3]` too**.
+
+A slice is a window onto an array, so two slices can share elements. `slices.Clone(a)` gives you a separate copy.
 </details>
 
 ### Maps
@@ -453,7 +527,9 @@ No. The new slice points into the same underlying array, so changing an element 
 
 <details><summary>Answer</summary>
 
-`make(map[string]int)` or `map[string]int{}`.
+`var m map[string]int` is `nil`, and **writing to it panics**. `make` creates the map so it can be written to.
+
+Example: `ages := make(map[string]int)`, then `ages["Ada"] = 36` works.
 </details>
 
 **33.** How do you tell a missing key apart from a zero value?
@@ -465,7 +541,9 @@ No. The new slice points into the same underlying array, so changing an element 
 
 <details><summary>Answer</summary>
 
-`v, ok := m[key]`: `ok` is `false` if the key is missing.
+Example: `ages := map[string]int{"Bo": 0}`. Both `ages["Bo"]` and `ages["Cy"]` give `0`.
+
+`v, ok := ages["Cy"]` gives **`ok = false`**, so you know Cy isn't there, rather than being 0.
 </details>
 
 **34.** What happens if you write to a `nil` map?
@@ -477,7 +555,9 @@ No. The new slice points into the same underlying array, so changing an element 
 
 <details><summary>Answer</summary>
 
-It panics.
+A `nil` map has **no storage to write into**.
+
+Example: `var ages map[string]int`, then `ages["Ada"] = 36` stops the program with `assignment to entry in nil map`. Reading a `nil` map is fine: it gives the zero value.
 </details>
 
 **35.** How do you remove a key from a map?
@@ -489,7 +569,7 @@ It panics.
 
 <details><summary>Answer</summary>
 
-`delete(m, key)`. Nothing happens if the key isn't there.
+Example: `delete(ages, "Ada")`. If `"Ada"` isn't there, **it does nothing**, so you don't need to check first.
 </details>
 
 **36.** In what order does `for k, v := range m` visit a map's keys?
@@ -501,7 +581,9 @@ It panics.
 
 <details><summary>Answer</summary>
 
-A random order that can change between runs. Sort the keys first if order matters.
+Go **deliberately randomises it**, so code can't rely on an order that might change.
+
+Example: ranging over `{"Ada": 36, "Bo": 41}` might give Bo first one run and Ada first the next. Collect the keys, `sort` them, then loop over those.
 </details>
 
 ### Choosing a data structure
@@ -515,7 +597,11 @@ A random order that can change between runs. Sort the keys first if order matter
 
 <details><summary>Answer</summary>
 
-Struct: a fixed set of named fields. Slice: an ordered list that can grow. Map: looking values up by a key.
+Examples from this codebase:
+
+- **Struct:** `models.Card` with `ID`, `Title`, `Order`.
+- **Slice:** `[]models.Card` for a column's cards, in order.
+- **Map:** `colMap[c.ID]` to find a column by its ID in one step, without looping.
 </details>
 
 **38.** Which are copied when assigned, and which are shared: struct, array, slice, map?
@@ -527,7 +613,9 @@ Struct: a fixed set of named fields. Slice: an ordered list that can grow. Map: 
 
 <details><summary>Answer</summary>
 
-Structs and arrays are copied. Slices and maps are shared: both variables see the same data.
+Example: `b := a` with a struct gives **two separate cards**; changing `b.Title` leaves `a` alone. With a map, `b := a` gives **two names for one map**; `b["x"] = 1` shows in `a`.
+
+That's why passing a map to a function lets it change your map.
 </details>
 
 ### `any`
@@ -541,7 +629,9 @@ Structs and arrays are copied. Slices and maps are shared: both variables see th
 
 <details><summary>Answer</summary>
 
-A value of any type. It's short for `interface{}`.
+Example: `var v any = "hello"`, then `v = 42`. Both work, because **`any` accepts every type**.
+
+The cost: you have to check the type (a type assertion) before you can use the value. It's like `unknown` in TypeScript.
 </details>
 
 ### Type assertions
@@ -555,7 +645,9 @@ A value of any type. It's short for `interface{}`.
 
 <details><summary>Answer</summary>
 
-Checks whether `x` (an `any` or interface value) holds a `models.User`. If so, `v` is that user and `ok` is `true`; if not, `v` is the zero value and `ok` is `false`.
+Example: `userFromContext` gets `any` back from `ctx.Value(userKey)`. `user, ok := v.(models.User)` **checks it really is a user** before using it.
+
+If it is, `ok` is `true` and `user` is Ada. If not, `ok` is `false` and `user` is an empty `models.User{}`.
 </details>
 
 **41.** Why use the `, ok` form of a type assertion?
@@ -567,7 +659,9 @@ Checks whether `x` (an `any` or interface value) holds a `models.User`. If so, `
 
 <details><summary>Answer</summary>
 
-Without it, a value of the wrong type causes a panic.
+Example: `n := v.(int)` when `v` holds `"hello"` **stops the program with a panic**.
+
+`n, ok := v.(int)` gives `ok = false` instead, and the code can return an error like `401`.
 </details>
 
 ## Functions and methods
@@ -583,7 +677,9 @@ Without it, a value of the wrong type causes a panic.
 
 <details><summary>Answer</summary>
 
-Both `tokenHash` and `userID` are strings. Neighbouring parameters of the same type can share one type name.
+Example: `func (s *PostgresStore) CreateSession(ctx context.Context, tokenHash, userID string, …)`.
+
+`tokenHash, userID string` is **shorthand for `tokenHash string, userID string`**: the type applies to every name before it.
 </details>
 
 ### Methods and receivers
@@ -597,7 +693,9 @@ Both `tokenHash` and `userID` are strings. Neighbouring parameters of the same t
 
 <details><summary>Answer</summary>
 
-The value a method is attached to, written before the method name: `func (h *UserHandler) CreateUser(...)`.
+Example: in `func (h *UserHandler) CreateUser(w, r)`, `h` is the receiver. Inside, **`h.store` reaches the handler's store**.
+
+It's like `this` in a TypeScript class method, but named and written explicitly.
 </details>
 
 **44.** What's the difference between a pointer receiver and a value receiver?
@@ -609,7 +707,9 @@ The value a method is attached to, written before the method name: `func (h *Use
 
 <details><summary>Answer</summary>
 
-A pointer receiver works on the original; a value receiver gets a copy.
+Example: `func (c Counter) Add()` changes **a copy**, so `c.n++` is lost when it returns. `func (c *Counter) Add()` changes **the original**.
+
+Store and handler methods use pointer receivers, so all requests share one store.
 </details>
 
 ### Functions as values
@@ -623,7 +723,9 @@ A pointer receiver works on the original; a value receiver gets a copy.
 
 <details><summary>Answer</summary>
 
-The method is passed as a value for the router to call later; `()` would call it now.
+Example: `mux.HandleFunc("POST /users", userHandler.CreateUser)` gives the router **the function itself**. The router calls it with `(w, r)` each time a request arrives.
+
+`userHandler.CreateUser()` would try to run it right now, at startup, with no request.
 </details>
 
 **46.** What is a closure?
@@ -635,7 +737,9 @@ The method is passed as a value for the router to call later; `()` would call it
 
 <details><summary>Answer</summary>
 
-An anonymous function that uses variables from the code around it.
+Example: `protected := func(h http.HandlerFunc) http.Handler { return authHandler.RequireAuth(h) }`. The function **uses `authHandler` from `main`**, even though it's not a parameter.
+
+Same as a TypeScript arrow function using a variable from outside it.
 </details>
 
 ### `defer`
@@ -649,7 +753,9 @@ An anonymous function that uses variables from the code around it.
 
 <details><summary>Answer</summary>
 
-When the surrounding function returns, however it returns.
+Example: `defer rows.Close()` near the top of `GetCards`. Whether the function returns normally or on an error, **`rows.Close()` runs just before it exits**.
+
+If there are several defers, they run in reverse order.
 </details>
 
 **48.** Where should `defer rows.Close()` go?
@@ -661,7 +767,13 @@ When the surrounding function returns, however it returns.
 
 <details><summary>Answer</summary>
 
-Right after successfully getting `rows`, so cleanup can't be forgotten.
+Example:
+
+`rows, err := s.db.QueryContext(…)`
+`if err != nil { return nil, err }`
+`defer rows.Close()`
+
+**After the error check**, because if the query failed, `rows` is `nil` and there's nothing to close.
 </details>
 
 ## Interfaces
@@ -675,7 +787,9 @@ Right after successfully getting `rows`, so cleanup can't be forgotten.
 
 <details><summary>Answer</summary>
 
-By having all its methods. It's automatic; there's no `implements` keyword.
+Example: `PostgresStore` has every method `Store` lists, so **it's a `Store` automatically**. The fake store in `handlers_test.go` is one too.
+
+No `implements Store` line is needed; Go checks the methods.
 </details>
 
 **50.** Why do handlers depend on the `Store` interface rather than `*PostgresStore`?
@@ -687,7 +801,9 @@ By having all its methods. It's automatic; there's no `implements` keyword.
 
 <details><summary>Answer</summary>
 
-So tests can pass in a fake store instead of a real database.
+Example: `NewBoardHandler(store)` accepts anything with the `Store` methods. Tests pass a **fake that keeps boards in a map**, so they run without Postgres.
+
+The handler can't tell the difference, which is the point.
 </details>
 
 ## Errors
@@ -701,7 +817,9 @@ So tests can pass in a fake store instead of a real database.
 
 <details><summary>Answer</summary>
 
-Success.
+Example: `board, err := s.GetBoard(…)`. If `err == nil`, **`board` is safe to use**. If not, don't trust `board`.
+
+It's why almost every call is followed by `if err != nil`.
 </details>
 
 **52.** Go has no exceptions. How do errors travel up the call chain?
@@ -713,7 +831,9 @@ Success.
 
 <details><summary>Answer</summary>
 
-They're returned, and each caller checks `if err != nil`.
+Example: `MoveCard` returns an error from the `INSERT`. The handler **checks `if err != nil`** and returns `500`.
+
+Nothing is thrown, so you can see every place an error can come from by reading the code.
 </details>
 
 **53.** What does `%w` do in `fmt.Errorf`?
@@ -725,7 +845,9 @@ They're returned, and each caller checks `if err != nil`.
 
 <details><summary>Answer</summary>
 
-Wraps the original error, adding context while keeping it findable with `errors.Is` and `errors.As`.
+Example: `fmt.Errorf("error during row iteration: %w", err)` gives a message with context, but **`errors.Is(err, …)` can still find the original** inside.
+
+With `%v` instead, the original error would become plain text and couldn't be found.
 </details>
 
 **54.** What's the difference between `errors.Is` and `errors.As`?
@@ -737,7 +859,10 @@ Wraps the original error, adding context while keeping it findable with `errors.
 
 <details><summary>Answer</summary>
 
-`errors.Is` checks for a specific error **value** (e.g. `ErrEmailTaken`). `errors.As` checks if an error is a specific **type** (e.g. `*pq.Error`) and, if so, puts it in your variable.
+Example:
+
+- `errors.Is(err, store.ErrEmailTaken)`: is this **that exact error**?
+- `var pqErr *pq.Error; errors.As(err, &pqErr)`: is this **a Postgres error**? If so, `pqErr.Code` is now readable.
 </details>
 
 ## Testing
@@ -751,7 +876,9 @@ Wraps the original error, adding context while keeping it findable with `errors.
 
 <details><summary>Answer</summary>
 
-Files end in `_test.go`; functions start with `Test` and take `t *testing.T`.
+`go test` **only looks for these names**.
+
+Example: `handlers_test.go` contains `func TestCreateBoard(t *testing.T)`. Name the function `CreateBoardTest` and it never runs, with no warning.
 </details>
 
 **56.** What's the difference between `t.Fatalf` and `t.Errorf`?
@@ -763,7 +890,9 @@ Files end in `_test.go`; functions start with `Test` and take `t *testing.T`.
 
 <details><summary>Answer</summary>
 
-`t.Fatalf` fails and stops the test; `t.Errorf` fails and keeps going.
+Example: if `CreateBoard` returns an error, the next checks would read a broken board, so use **`t.Fatalf` to stop**.
+
+When checking several separate fields, `t.Errorf` reports every wrong one in a single run.
 </details>
 
 **57.** What does `./...` mean in `go test ./...`?
@@ -775,5 +904,7 @@ Files end in `_test.go`; functions start with `Test` and take `t *testing.T`.
 
 <details><summary>Answer</summary>
 
-This folder and every folder below it.
+Example: from `backend/`, `go test ./...` runs the tests in `internal/handlers`, `internal/store` and **every other folder below**.
+
+`go test .` would only run tests in `backend/` itself.
 </details>

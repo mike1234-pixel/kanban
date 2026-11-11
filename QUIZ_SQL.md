@@ -15,7 +15,9 @@ Recall questions on `LEARNING_SQL.md`. Try answering before opening each answer.
 
 <details><summary>Answer</summary>
 
-It does nothing if the table already exists, instead of failing.
+Example: the API runs `CREATE TABLE IF NOT EXISTS card_movements …` on every startup. The first `go run .` creates it; **every later run does nothing**.
+
+Plain `CREATE TABLE` would fail on the second run with `relation "card_movements" already exists`.
 </details>
 
 **1a.** You add a foreign key to a `CREATE TABLE IF NOT EXISTS`. Why doesn't your existing database get it?
@@ -27,7 +29,9 @@ It does nothing if the table already exists, instead of failing.
 
 <details><summary>Answer</summary>
 
-`IF NOT EXISTS` skips a table that already exists, so it's never changed. An existing table needs **`ALTER TABLE … ADD FOREIGN KEY`**.
+Example: your database already has `card_movements` from last month. You add `REFERENCES cards(id)` to the `CREATE TABLE`, restart, and **nothing changes**, because the table exists so the whole statement is skipped.
+
+You run **`ALTER TABLE card_movements ADD FOREIGN KEY …`** once by hand. Step 6's migrations fix this properly.
 </details>
 
 ### Column types
@@ -41,7 +45,9 @@ It does nothing if the table already exists, instead of failing.
 
 <details><summary>Answer</summary>
 
-`VARCHAR(100)` allows up to 100 characters; `TEXT` has no length limit.
+Example: `title VARCHAR(100)` **rejects a 101-character title**, so the database enforces the limit. `description TEXT` accepts any length.
+
+Use `VARCHAR(n)` when there's a real maximum; `TEXT` when there isn't. They're equally fast in Postgres.
 </details>
 
 **3.** Which type stores a moment in time, with its time zone?
@@ -53,7 +59,9 @@ It does nothing if the table already exists, instead of failing.
 
 <details><summary>Answer</summary>
 
-`TIMESTAMPTZ`.
+Example: Ada in London creates a card at 09:00. Bo in New York sees **04:00 his time**: the same moment. `TIMESTAMPTZ` stores the exact moment, not a clock reading.
+
+Plain `TIMESTAMP` would store "09:00" with no zone, and Bo couldn't tell when it really happened.
 </details>
 
 ### Constraints
@@ -67,7 +75,9 @@ It does nothing if the table already exists, instead of failing.
 
 <details><summary>Answer</summary>
 
-Unique and not null. It comes with an index.
+Example: `users.id UUID PRIMARY KEY` means no two users share an `id`, and **no user can have no `id`**.
+
+The index (`users_pkey`) makes `WHERE id = $1` a quick lookup, which matters because nearly every query finds rows by ID.
 </details>
 
 **5.** What does a `CHECK` constraint do? Give the example from this project.
@@ -79,7 +89,9 @@ Unique and not null. It comes with an index.
 
 <details><summary>Answer</summary>
 
-Rejects any row that makes the expression false, e.g. `CHECK (position >= 0)`.
+Example: `columns.position INTEGER CHECK (position >= 0)`. Inserting `2` works; inserting `-1` **fails with `23514`**, even if the Go code has a bug.
+
+It's a rule you write yourself, so the database can enforce anything a true/false expression can say.
 </details>
 
 **6.** What does `DEFAULT NOW()` do?
@@ -91,7 +103,9 @@ Rejects any row that makes the expression false, e.g. `CHECK (position >= 0)`.
 
 <details><summary>Answer</summary>
 
-Fills in the current time when an insert doesn't give a value.
+Example: `INSERT INTO boards (id, title, owner_id) VALUES (…)` doesn't mention `created_at`, so **Postgres fills in the current time**.
+
+The Go code never sets `created_at`; it gets the value back with `RETURNING created_at`.
 </details>
 
 **7.** What do Postgres error codes starting with `23` mean, and which one is a unique violation?
@@ -103,7 +117,9 @@ Fills in the current time when an insert doesn't give a value.
 
 <details><summary>Answer</summary>
 
-`23…` codes are all constraint violations. `23505` is a unique violation (`23503` is a foreign key violation).
+Postgres groups its codes by class: **`23` is the "a constraint was broken" class**.
+
+Example: two sign-ups with `ada@example.com` give **`23505`** (unique). Deleting a user who has sessions without `ON DELETE CASCADE` gives `23503` (foreign key).
 </details>
 
 **8.** How should Go code refer to a Postgres error code like `23505`?
@@ -115,7 +131,9 @@ Fills in the current time when an insert doesn't give a value.
 
 <details><summary>Answer</summary>
 
-Through a named constant, e.g. `uniqueViolation = "23505"`, never as a bare string.
+`if pqErr.Code == "23505"` leaves the reader guessing what `23505` is. **`if pqErr.Code == uniqueViolation` explains itself.**
+
+It also means a typo like `"2305"` can only happen in one place.
 </details>
 
 ### Quoting names
@@ -129,7 +147,9 @@ Through a named constant, e.g. `uniqueViolation = "23505"`, never as a bare stri
 
 <details><summary>Answer</summary>
 
-`ORDER` is an SQL keyword; quotes let it be used as a column name.
+Example: `SELECT id, order FROM cards` fails, because Postgres reads `order` as the start of `ORDER BY`. **`"order"` tells it this is a name**, not the keyword.
+
+That's why new tables use names like `position` instead.
 </details>
 
 ## Queries
@@ -145,7 +165,9 @@ Through a named constant, e.g. `uniqueViolation = "23505"`, never as a bare stri
 
 <details><summary>Answer</summary>
 
-No guaranteed order.
+Example: `SELECT * FROM boards` might return Ada's boards oldest first today, and **a different order after an update**, because Postgres returns rows in whatever order is quickest for it.
+
+If the order matters, say so: `ORDER BY created_at DESC`.
 </details>
 
 **11.** What does `WHERE` do?
@@ -157,7 +179,9 @@ No guaranteed order.
 
 <details><summary>Answer</summary>
 
-Filters which rows the query uses.
+Example: `SELECT * FROM cards WHERE column_id = $1` **only returns cards in that column**. On an `UPDATE` or `DELETE`, `WHERE` decides which rows change.
+
+Without it, every row is used.
 </details>
 
 ### `INSERT`, `UPDATE`, `DELETE`
@@ -171,7 +195,9 @@ Filters which rows the query uses.
 
 <details><summary>Answer</summary>
 
-Sends back columns from the inserted row, such as values the database filled in (`created_at`).
+Example: `INSERT INTO boards (id, title, owner_id) VALUES ($1, $2, $3) RETURNING created_at`. The database sets `created_at`, and **`RETURNING` sends it back in the same query**.
+
+Without it, you'd need a second `SELECT` to find out what the database filled in.
 </details>
 
 **13.** What happens if you run `DELETE FROM users` without a `WHERE`?
@@ -183,7 +209,9 @@ Sends back columns from the inserted row, such as values the database filled in 
 
 <details><summary>Answer</summary>
 
-Every row in the table is deleted.
+Example: you mean `DELETE FROM users WHERE id = $1` but forget the `WHERE`. **Every user is deleted**, and through `ON DELETE CASCADE`, all their boards and sessions too.
+
+Postgres doesn't warn you. It's why the store always includes the `WHERE`.
 </details>
 
 ### Placeholders
@@ -197,7 +225,9 @@ Every row in the table is deleted.
 
 <details><summary>Answer</summary>
 
-Placeholders: values sent separately from the SQL text, filled in by the database.
+Example: `QueryRowContext(ctx, "SELECT … WHERE email = $1", email)`. **The SQL text and the value travel separately**, and Postgres puts the value in place of `$1`.
+
+`$2` is the second argument, `$3` the third, and so on.
 </details>
 
 **15.** What attack do placeholders prevent, and how?
@@ -209,7 +239,9 @@ Placeholders: values sent separately from the SQL text, filled in by the databas
 
 <details><summary>Answer</summary>
 
-SQL injection. The value is only ever treated as data, never as part of the SQL.
+Example: if code pasted the email into the SQL, the input `' OR '1'='1` would make it `WHERE email = '' OR '1'='1'`, which **matches every user**.
+
+As a placeholder value, that input is just a strange email address that matches nobody.
 </details>
 
 ### `JOIN`
@@ -223,7 +255,9 @@ SQL injection. The value is only ever treated as data, never as part of the SQL.
 
 <details><summary>Answer</summary>
 
-Combines rows from two tables in one query, matching them on a condition (e.g. `u.id = s.user_id`).
+Example: `sessions` has `user_id`, and you want the user's name. `JOIN users u ON u.id = s.user_id` gives **one row with columns from both tables**: `token_hash` and `name`.
+
+That's `GetSessionUser`: one query instead of two.
 </details>
 
 **17.** In `FROM sessions s`, what is `s`?
@@ -235,7 +269,9 @@ Combines rows from two tables in one query, matching them on a condition (e.g. `
 
 <details><summary>Answer</summary>
 
-An alias: a short name for the table, so `s.user_id` means `sessions.user_id`.
+Example: `FROM sessions s JOIN users u ON u.id = s.user_id`. Both tables have `created_at`, so **`s.created_at` and `u.created_at` say which one you mean**.
+
+Aliases also keep long queries short to read.
 </details>
 
 ### Writes that check another table
@@ -249,7 +285,9 @@ An alias: a short name for the table, so `s.user_id` means `sessions.user_id`.
 
 <details><summary>Answer</summary>
 
-Inserts nothing: the `SELECT` produces no rows. `RowsAffected()` is 0.
+Example: Bo tries to add a column to Ada's board. `EXISTS (… WHERE owner_id = 'bo')` is false, so the `SELECT` gives no rows and **there's nothing to insert**.
+
+The store sees `RowsAffected() == 0` and the handler returns `404`. One statement checks and writes.
 </details>
 
 **19.** What does `EXISTS (subquery)` return, and why is it often written `SELECT 1`?
@@ -261,7 +299,9 @@ Inserts nothing: the `SELECT` produces no rows. `RowsAffected()` is 0.
 
 <details><summary>Answer</summary>
 
-True if the subquery returns at least one row. The selected value doesn't matter, only whether a row exists, so `1` is a placeholder.
+Example: `EXISTS (SELECT 1 FROM boards WHERE id = $2 AND owner_id = $5)` is **true if Ada owns that board**, false if not.
+
+`1` is just something to select. `SELECT title` would work the same; only whether a row exists matters.
 </details>
 
 **20.** How do you join another table into an `UPDATE` or a `DELETE` in Postgres?
@@ -273,7 +313,9 @@ True if the subquery returns at least one row. The selected value doesn't matter
 
 <details><summary>Answer</summary>
 
-`UPDATE … FROM other_table WHERE …` and `DELETE FROM … USING other_table WHERE …`.
+Example: `DELETE FROM columns c USING boards b WHERE c.id = $1 AND b.id = c.board_id AND b.owner_id = $2`.
+
+**`USING boards b` brings in the board**, so the `WHERE` can check its owner. Bo's ID matches nothing, so nothing is deleted.
 </details>
 
 ## Performance
@@ -289,7 +331,9 @@ True if the subquery returns at least one row. The selected value doesn't matter
 
 <details><summary>Answer</summary>
 
-Finding rows by a column's value without reading every row. It's a sorted copy of that column's values, each with its row's location.
+Example: `WHERE id = $1` on a million cards. Without an index, Postgres checks **all 1,000,000 rows**. With the `cards_pkey` index, it checks about **20 entries**, because the index is sorted.
+
+The bigger the table, the bigger the difference.
 </details>
 
 **22.** Does a foreign key column get an index automatically?
@@ -301,7 +345,9 @@ Finding rows by a column's value without reading every row. It's a sorted copy o
 
 <details><summary>Answer</summary>
 
-No. `PRIMARY KEY` and `UNIQUE` do; a foreign key like `cards.column_id` doesn't, so you add one with `CREATE INDEX`.
+Example: `cards.column_id REFERENCES columns(id)` has **no index**, so `WHERE column_id = $1` reads every card.
+
+Postgres only creates indexes for `PRIMARY KEY` and `UNIQUE`. You add `CREATE INDEX cards_column_id_idx ON cards (column_id)` yourself (step 6).
 </details>
 
 **23.** What's the trade-off of adding an index?
@@ -313,7 +359,9 @@ No. `PRIMARY KEY` and `UNIQUE` do; a foreign key like `cards.column_id` doesn't,
 
 <details><summary>Answer</summary>
 
-Faster reads, but slightly slower writes and more storage.
+Example: an index on `cards.column_id` makes listing a column's cards fast. But **every `INSERT` of a card now also updates the index**, and it takes disk space.
+
+So index columns you search by, not every column.
 </details>
 
 ### `EXPLAIN`
@@ -327,7 +375,9 @@ Faster reads, but slightly slower writes and more storage.
 
 <details><summary>Answer</summary>
 
-How Postgres plans to run a query, e.g. whether it uses an index or scans every row.
+Example: `EXPLAIN SELECT * FROM cards WHERE column_id = '…'` shows **`Seq Scan on cards`**, meaning Postgres would read every row.
+
+It's how you find out why a query is slow, without running it.
 </details>
 
 **25.** In a query plan, which is slow on a big table: an index scan or a sequential scan?
@@ -339,7 +389,9 @@ How Postgres plans to run a query, e.g. whether it uses an index or scans every 
 
 <details><summary>Answer</summary>
 
-A sequential scan (`Seq Scan`): it reads every row.
+Example: with a million cards, `Seq Scan` **reads all million rows**. An `Index Scan` goes straight to the few it needs.
+
+On a 3-row table, a `Seq Scan` is fine, and Postgres may even prefer it.
 </details>
 
 **26.** In a query plan, what's the difference between `Index Cond` and `Filter`?
@@ -351,7 +403,12 @@ A sequential scan (`Seq Scan`): it reads every row.
 
 <details><summary>Answer</summary>
 
-`Index Cond` is answered by an index. `Filter` is checked on each row, one by one.
+Example:
+
+- `Index Cond: (id = '…')`: Postgres **used the index** to jump to the row.
+- `Filter: (column_id = '…')`: Postgres **read each row and tested it**, which means no index helped.
+
+Seeing `Filter` on a big table is a hint you need an index.
 </details>
 
 **27.** What does `EXPLAIN ANALYZE` do that `EXPLAIN` doesn't, and why be careful with it?
@@ -363,7 +420,9 @@ A sequential scan (`Seq Scan`): it reads every row.
 
 <details><summary>Answer</summary>
 
-It actually runs the query and shows real times. On a `DELETE` or `UPDATE` it really changes the data.
+Example: `EXPLAIN ANALYZE DELETE FROM cards WHERE …` **deletes the cards for real**, then shows how long it took.
+
+Wrap it in `BEGIN; … ROLLBACK;` to measure a write without keeping its changes.
 </details>
 
 ## Go's `database/sql`
@@ -377,7 +436,11 @@ It actually runs the query and shows real times. On a `DELETE` or `UPDATE` it re
 
 <details><summary>Answer</summary>
 
-`QueryRowContext`: one row. `QueryContext`: many rows. `ExecContext`: writes with no rows back.
+Examples from the store:
+
+- `GetCardByID` uses **`QueryRowContext`**: one card.
+- `GetCards` uses **`QueryContext`**: many cards, read in a `rows.Next()` loop.
+- `DeleteCard` uses **`ExecContext`**: nothing comes back except `RowsAffected()`.
 </details>
 
 **29.** What does `QueryRowContext(...).Scan` return when no row matches?
@@ -389,7 +452,9 @@ It actually runs the query and shows real times. On a `DELETE` or `UPDATE` it re
 
 <details><summary>Answer</summary>
 
-`sql.ErrNoRows`.
+Example: `GetCardByID` asks for card `abc`, which doesn't exist. The query works, but **there's nothing to scan**, so `Scan` returns `sql.ErrNoRows`.
+
+The store checks `err == sql.ErrNoRows` and treats it as "not found", not as a failure.
 </details>
 
 **30.** Why does `Scan` take pointers, like `Scan(&u.ID, &u.Name)`?
@@ -401,5 +466,7 @@ It actually runs the query and shows real times. On a `DELETE` or `UPDATE` it re
 
 <details><summary>Answer</summary>
 
-So it can fill in the original variables, not copies.
+Go passes values by copy. `Scan(u.ID)` would get **a copy of the empty `ID`** and couldn't change yours.
+
+`Scan(&u.ID, &u.Name)` gives it the addresses, so it can write the row's values into your variables. Same idea as `Decode(&user)`.
 </details>

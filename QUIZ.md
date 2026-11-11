@@ -13,7 +13,9 @@ Recall questions on the concepts in `LEARNING.md`. Try answering before opening 
 
 <details><summary>Answer</summary>
 
-Create (`POST`), Read (`GET`), Update (`PUT`), Delete (`DELETE`).
+Example for boards: `POST /boards` creates one, `GET /boards/123` reads it, `PUT /boards/123` updates it, `DELETE /boards/123` deletes it.
+
+**The method says what to do; the path says which resource.** That's why the same URL can take four methods.
 </details>
 
 **2.** What does *idempotent* mean, and which of `GET`, `POST`, `PUT`, `DELETE` is not idempotent?
@@ -25,7 +27,9 @@ Create (`POST`), Read (`GET`), Update (`PUT`), Delete (`DELETE`).
 
 <details><summary>Answer</summary>
 
-Repeating the request has the same effect as doing it once. `POST` isn't: two creates can make two resources.
+Example: sending `DELETE /boards/123` twice leaves the board deleted either way. Sending `POST /boards` twice **creates two boards**.
+
+That's why it's safe for a browser to retry a `GET`, `PUT` or `DELETE`, but not a `POST`.
 </details>
 
 **3.** An `UPDATE` or `DELETE` matches no rows. Postgres doesn't return an error. How does the store know nothing was found?
@@ -37,7 +41,9 @@ Repeating the request has the same effect as doing it once. `POST` isn't: two cr
 
 <details><summary>Answer</summary>
 
-`RowsAffected()` returns 0.
+Example: `DELETE FROM boards WHERE id = 'abc'` with no board `abc` runs fine and deletes 0 rows. That's not an error to Postgres.
+
+So the store checks **`RowsAffected() == 0`** and returns `false`, and the handler turns that into `404`.
 </details>
 
 ## 2. HTTP Fundamentals
@@ -53,7 +59,9 @@ Repeating the request has the same effect as doing it once. `POST` isn't: two cr
 
 <details><summary>Answer</summary>
 
-2xx: success. 4xx: the client's fault. 5xx: the server's fault.
+Example: `201` means the board was created. `400` means the JSON you sent was broken, so **you fix your request**. `500` means the database failed, so **the server needs fixing**; retrying the same request may work later.
+
+The first digit tells the client who's at fault before it reads anything else.
 </details>
 
 **5.** What do 201, 204, 404 and 409 mean?
@@ -65,7 +73,7 @@ Repeating the request has the same effect as doing it once. `POST` isn't: two cr
 
 <details><summary>Answer</summary>
 
-201 Created, 204 No Content, 404 Not Found, 409 Conflict.
+Examples from this API: `POST /boards` returns **`201`** with the new board. `DELETE /boards/123` returns **`204`** with an empty body. `GET /boards/999` returns **`404`**. Creating a user with an email that's taken returns **`409`**.
 </details>
 
 **6.** How many times can a handler set the status code?
@@ -77,7 +85,9 @@ Repeating the request has the same effect as doing it once. `POST` isn't: two cr
 
 <details><summary>Answer</summary>
 
-Once. Later calls to `WriteHeader` are ignored.
+The status line is the first thing sent to the client, so once it's gone it can't be changed.
+
+Example: a handler calls `WriteHeader(201)`, then later `WriteHeader(500)`. The client still gets **`201`**, and Go logs `superfluous response.WriteHeader call`.
 </details>
 
 ### JSON encode/decode
@@ -91,7 +101,9 @@ Once. Later calls to `WriteHeader` are ignored.
 
 <details><summary>Answer</summary>
 
-Decoding turns JSON into a Go struct (for requests). Encoding turns a Go struct into JSON (for responses).
+Example: the client sends `{"title":"Sprint"}`. **Decoding** fills `models.Board{Title: "Sprint"}`. The handler saves it, then **encoding** turns the saved board back into `{"id":"…","title":"Sprint"}` for the response.
+
+In TypeScript terms: decoding is `JSON.parse`, encoding is `JSON.stringify`.
 </details>
 
 **8.** What does a `nil` slice encode as, and what does an empty slice encode as?
@@ -103,7 +115,9 @@ Decoding turns JSON into a Go struct (for requests). Encoding turns a Go struct 
 
 <details><summary>Answer</summary>
 
-`nil` encodes as `null`; empty encodes as `[]`.
+Example: `var cards []Card` is `nil` and encodes as **`null`**. `cards := []Card{}` encodes as **`[]`**.
+
+A frontend doing `data.map(…)` crashes on `null`, which is why list endpoints always start with an empty slice.
 </details>
 
 **9.** Which struct fields can `encoding/json` see?
@@ -115,7 +129,9 @@ Decoding turns JSON into a Go struct (for requests). Encoding turns a Go struct 
 
 <details><summary>Answer</summary>
 
-Only exported fields, the ones starting with a capital letter.
+`encoding/json` is a different package, and **other packages can only see capitalised names**.
+
+Example: in `type Board struct { ID string; title string }`, only `ID` appears in the JSON. `title` is silently left out.
 </details>
 
 ### Validation
@@ -129,7 +145,9 @@ Only exported fields, the ones starting with a capital letter.
 
 <details><summary>Answer</summary>
 
-Decoding proves the JSON is readable; validation proves the values make sense (lengths, formats, required fields).
+Example: `{"title": ""}` **decodes fine**: it's valid JSON. But an empty title makes no sense, so **validation** rejects it with `400 VALIDATION_FAILED`.
+
+`{"title": ` (cut off) fails earlier, at decoding, with `400 INVALID_JSON`.
 </details>
 
 **11.** In what order does a create handler decode, validate and call the store?
@@ -141,7 +159,9 @@ Decoding proves the JSON is readable; validation proves the values make sense (l
 
 <details><summary>Answer</summary>
 
-Decode → validate → store.
+Each step needs the one before it: you can't validate a struct until it's decoded, and **the store should only ever receive valid data**.
+
+Example: `POST /boards` with `{"title":""}` stops at validation, so no SQL runs at all.
 </details>
 
 **12.** Validation can't catch a duplicate email. What does?
@@ -153,7 +173,9 @@ Decode → validate → store.
 
 <details><summary>Answer</summary>
 
-The database's `UNIQUE` constraint. The API returns 409 Conflict.
+Validation only sees the request; it can't know who's already in the `users` table.
+
+Example: two sign-ups for `ada@example.com` arrive at once. Both pass validation, but **Postgres's `UNIQUE` rejects the second** (`23505`). The store returns `ErrEmailTaken`, and the handler returns `409 USER_EMAIL_TAKEN`.
 </details>
 
 ### Path/query params
@@ -167,7 +189,9 @@ The database's `UNIQUE` constraint. The API returns 409 Conflict.
 
 <details><summary>Answer</summary>
 
-Uniform Resource Locator: it locates a resource. `http` is the scheme, `localhost:8080` the host and port, `/boards/123` the path, `?page=2` the query.
+Each part answers a question: **how** to talk (`http`), **which machine** (`localhost:8080`), **which resource** (`/boards/123`), and **how to return it** (`?page=2`).
+
+The router only matches on the method and the path; the query is read by the handler.
 </details>
 
 **14.** What's a path param for, and what's a query param for?
@@ -179,7 +203,9 @@ Uniform Resource Locator: it locates a resource. `http` is the scheme, `localhos
 
 <details><summary>Answer</summary>
 
-A path param identifies *which* resource (`/boards/{id}`). A query param filters or shapes the result (`/cards?status=completed`).
+Example: `/boards/123` names board 123, and **without the `123` there's no resource**. `/boards?archived=false&page=2` is still the boards list, just **filtered and paged**.
+
+Rule of thumb: if leaving it out changes *what* you get, it's a path param; if it changes *how much or which order*, it's a query param.
 </details>
 
 **15.** What does a missing query param return in Go?
@@ -191,7 +217,9 @@ A path param identifies *which* resource (`/boards/{id}`). A query param filters
 
 <details><summary>Answer</summary>
 
-An empty string, `""`.
+Example: for `/boards` (no `?page=`), `r.URL.Query().Get("page")` returns **`""`, not an error**.
+
+So the handler must decide what empty means, e.g. "use page 1".
 </details>
 
 **16.** What type do path and query params arrive as?
@@ -203,7 +231,9 @@ An empty string, `""`.
 
 <details><summary>Answer</summary>
 
-Strings. Numbers need converting, e.g. with `strconv.Atoi`.
+A URL is just text, so Go can't know `123` is meant to be a number.
+
+Example: `?page=2` gives you **the string `"2"`**. `strconv.Atoi("2")` turns it into `2`, and returns an error for `?page=abc`, which the handler turns into `400`.
 </details>
 
 ### Consistent errors
@@ -217,7 +247,9 @@ Strings. Numbers need converting, e.g. with `strconv.Atoi`.
 
 <details><summary>Answer</summary>
 
-`code` is for the client's code to branch on; `message` is for people to read.
+Example: `{"code":"BOARD_NOT_FOUND","message":"Board not found"}`. The frontend checks **`code === "BOARD_NOT_FOUND"`**, so you can reword the message later without breaking it.
+
+The `message` can be shown to the user as it is.
 </details>
 
 **18.** Where does the HTTP status code go in a response, and where does the application error code go?
@@ -229,7 +261,12 @@ Strings. Numbers need converting, e.g. with `strconv.Atoi`.
 
 <details><summary>Answer</summary>
 
-The HTTP status code is in the status line, the first line of the response. The application error code is in the JSON body.
+Example response:
+
+`HTTP/1.1 404 Not Found` ← **status code**, read by browsers, proxies and `fetch`'s `res.ok`
+`{"error":{"code":"BOARD_NOT_FOUND", …}}` ← **error code**, read by your frontend
+
+The status says the general kind of failure; the error code says exactly which one.
 </details>
 
 **19.** Why do 500 errors send a generic message instead of the real error?
@@ -241,7 +278,9 @@ The HTTP status code is in the status line, the first line of the response. The 
 
 <details><summary>Answer</summary>
 
-The real error can leak database details to attackers, and the client can't act on it anyway. It goes to the logs instead.
+Example: a real error like `pq: relation "boardz" does not exist` tells an attacker your table names. The user can't fix it anyway.
+
+So the client gets **`500 INTERNAL_ERROR` with a generic message**, and the real error goes to `slog` for you to read.
 </details>
 
 **20.** Which layer picks the HTTP status code: the handler or the store?
@@ -253,7 +292,9 @@ The real error can leak database details to attackers, and the client can't act 
 
 <details><summary>Answer</summary>
 
-The handler. The store only talks to the database and reports what happened.
+Status codes are HTTP, and **only the handler knows about HTTP**.
+
+Example: the store returns `false` for "no rows matched". The same `false` might be `404` from `GET /boards/123` but something else from another endpoint. The handler decides.
 </details>
 
 **21.** Why does the store turn Postgres error `23505` into `ErrBoardExists`, instead of the handler checking for `23505`?
@@ -265,7 +306,9 @@ The handler. The store only talks to the database and reports what happened.
 
 <details><summary>Answer</summary>
 
-Only the store should know Postgres exists. Handlers depend on the `Store` interface, so a test fake or another database can return the same error.
+`23505` is a Postgres detail. If handlers checked it, **every handler would depend on Postgres**.
+
+Example: the fake store in `handlers_test.go` can return `ErrBoardExists` without any database, and the handler still returns `409`.
 </details>
 
 ### Content-Type
@@ -279,7 +322,9 @@ Only the store should know Postgres exists. Handlers depend on the `Store` inter
 
 <details><summary>Answer</summary>
 
-What format the response body is in, e.g. `application/json`, `text/plain` or `text/html`.
+The body is just bytes; this header says how to read them.
+
+Example: with **`Content-Type: application/json`**, `fetch`'s `res.json()` and tools like curl know to parse it as JSON. Without it, they may treat it as plain text.
 </details>
 
 **23.** In what order must a handler set headers, write the status and write the body?
@@ -291,7 +336,9 @@ What format the response body is in, e.g. `application/json`, `text/plain` or `t
 
 <details><summary>Answer</summary>
 
-Headers → status (`WriteHeader`) → body.
+They're sent in that order on the wire. **Once the status or body starts, the headers have already gone.**
+
+Example: setting `Content-Type` after `w.Write(body)` does nothing, because the headers were already sent.
 </details>
 
 ### Request lifecycle
@@ -305,7 +352,9 @@ Headers → status (`WriteHeader`) → body.
 
 <details><summary>Answer</summary>
 
-TCP: Transmission Control Protocol. TLS: Transport Layer Security.
+**TCP** gets bytes from one machine to another reliably and in order. **TLS** encrypts those bytes.
+
+HTTP is sent over TCP; HTTPS is HTTP sent over TLS over TCP.
 </details>
 
 **25.** What are the three steps of the TCP handshake?
@@ -317,7 +366,9 @@ TCP: Transmission Control Protocol. TLS: Transport Layer Security.
 
 <details><summary>Answer</summary>
 
-SYN (synchronize) → SYN-ACK (synchronize-acknowledge) → ACK (acknowledge).
+Example: the browser sends **SYN** ("I want to connect"), the server replies **SYN-ACK** ("OK, I'm ready"), the browser sends **ACK** ("got it").
+
+Only then can the HTTP request be sent. It's why a new connection costs a round trip before any data moves.
 </details>
 
 **26.** What does TLS add on top of TCP?
@@ -329,7 +380,9 @@ SYN (synchronize) → SYN-ACK (synchronize-acknowledge) → ACK (acknowledge).
 
 <details><summary>Answer</summary>
 
-Encryption, and server identity via a certificate. Together they make HTTPS.
+Without TLS, anyone on the network (e.g. café Wi-Fi) can **read your session cookie and use it**.
+
+TLS encrypts the traffic, and the **certificate proves** you're talking to the real server, not an impostor.
 </details>
 
 **27.** Why does Go's server give each connection its own goroutine?
@@ -341,7 +394,9 @@ Encryption, and server identity via a certificate. Together they make HTTPS.
 
 <details><summary>Answer</summary>
 
-So requests are handled concurrently, and one slow client doesn't block the others.
+Example: Ada is on a slow phone connection, uploading slowly. Bo's `GET /boards` **doesn't have to wait for Ada**, because his connection has its own goroutine.
+
+Goroutines are cheap, so a Go server can run thousands at once.
 </details>
 
 **28.** Which part of the server decides which handler a request goes to?
@@ -353,7 +408,9 @@ So requests are handled concurrently, and one slow client doesn't block the othe
 
 <details><summary>Answer</summary>
 
-The mux (multiplexer), also called the router.
+Example: `POST /cards/c1/move` arrives. **The mux matches the method and path** against `mux.Handle("POST /cards/{id}/move", …)` and calls `cardHandler.MoveCard`.
+
+No match means it returns `404` before any of your code runs.
 </details>
 
 ### `context.Context`
@@ -367,7 +424,9 @@ The mux (multiplexer), also called the router.
 
 <details><summary>Answer</summary>
 
-The client disconnecting, or the handler returning.
+Example: Ada closes the tab mid-request. The context is cancelled, so **any query still running is abandoned**.
+
+When the handler returns, the context is cancelled too, so nothing keeps working on a finished request.
 </details>
 
 **30.** Why pass `r.Context()` to database calls?
@@ -379,7 +438,9 @@ The client disconnecting, or the handler returning.
 
 <details><summary>Answer</summary>
 
-So the database abandons the query if the client disconnects, freeing the connection.
+Example: a slow report query takes 10 seconds. The user closes the tab after 1. With `r.Context()`, **Postgres stops after 1 second** and the connection goes back to the pool.
+
+Without it, the query runs all 10 seconds for a response nobody will read.
 </details>
 
 **31.** By convention, where does a context parameter go, and what is it named?
@@ -391,7 +452,9 @@ So the database abandons the query if the client disconnects, freeing the connec
 
 <details><summary>Answer</summary>
 
-First in the parameter list, named `ctx`.
+Example: `func (s *PostgresStore) GetBoard(ctx context.Context, id string)`.
+
+It's a convention all Go code follows, so **anyone reading a function sees straight away that it can be cancelled**.
 </details>
 
 ## 3. Authentication / Authorization
@@ -407,7 +470,9 @@ First in the parameter list, named `ctx`.
 
 <details><summary>Answer</summary>
 
-Attackers guess passwords and hash each guess. A slow hash (about 100ms) makes guessing millions of passwords impractical, while one login barely notices.
+Example: an attacker has a stolen hash and tries guesses. At 100ms each, **10 million guesses take about 12 days** per user. A fast hash like SHA-256 would do them in under a second.
+
+One login waits 100ms once, which nobody notices.
 </details>
 
 **33.** What is a salt, and what attack does it stop?
@@ -419,7 +484,9 @@ Attackers guess passwords and hash each guess. A slow hash (about 100ms) makes g
 
 <details><summary>Answer</summary>
 
-A random value mixed into each password before hashing, so identical passwords get different hashes. It stops precomputed lookup tables (rainbow tables).
+Example: Ada and Bo both use `password123`. Without a salt, their hashes are identical, and **one lookup table cracks both**. With a salt each, their hashes differ.
+
+A lookup table only works if it was built for that exact salt, which is impossible when every user's salt is random.
 </details>
 
 **34.** Why doesn't the salt need to be secret?
@@ -431,7 +498,9 @@ A random value mixed into each password before hashing, so identical passwords g
 
 <details><summary>Answer</summary>
 
-It's random, so it can't be guessed in advance to build a lookup table. Once stolen, it only lets an attacker guess one user's password at a time.
+Its job is to make every user's hash different, **not to be unknown**.
+
+Example: the bcrypt hash `$2a$10$N9qo8uLOickgx2ZMRZoMye…` stores the salt (`N9qo8uLOickgx2ZMRZoMye`) right inside it. Login needs it to check the password.
 </details>
 
 **35.** Can anything stop an attacker with a stolen database from guessing passwords? What makes guessing impractical?
@@ -443,7 +512,9 @@ It's random, so it can't be guessed in advance to build a lookup table. Once sto
 
 <details><summary>Answer</summary>
 
-No: they can always hash a guess with a user's salt and compare. The salt makes them guess each user separately, bcrypt's slowness makes each guess take about 100ms, and a strong password means far too many guesses are needed.
+Example: an attacker with the database tries `password123` against Ada's hash. If that's her password, they're in. **Nothing stops a guess from working**; you can only make guessing slow.
+
+That's why a long, unusual password is the final defence.
 </details>
 
 **36.** How does login check a password, if a hash can't be reversed?
@@ -455,7 +526,9 @@ No: they can always hash a guess with a user's salt and compare. The salt makes 
 
 <details><summary>Answer</summary>
 
-It hashes what the user typed with the same salt and cost (read from the stored hash) and compares the result with the stored hash.
+Example: Ada types `correct-horse`. `bcrypt.CompareHashAndPassword` **reads the salt and cost from her stored hash**, hashes `correct-horse` the same way, and checks the two results match.
+
+The password itself is never stored or decrypted.
 </details>
 
 **37.** Which struct tag keeps a field out of JSON responses?
@@ -467,7 +540,7 @@ It hashes what the user typed with the same salt and cost (read from the stored 
 
 <details><summary>Answer</summary>
 
-`json:"-"`.
+Example: `` PasswordHash string `json:"-"` `` means **encoding skips the field**, so `GET /users/123` never sends the hash, even by accident.
 </details>
 
 ### Sessions and cookies
@@ -481,7 +554,9 @@ It hashes what the user typed with the same salt and cost (read from the stored 
 
 <details><summary>Answer</summary>
 
-Login creates a session and sets a cookie holding a random session token. The browser sends the cookie on every request, and the server looks the token up in the `sessions` table.
+Example: Ada logs in, and the response sets `session=Xy7…`. On `GET /boards`, the browser **sends the cookie automatically**. The server hashes `Xy7…`, finds the row in `sessions`, and knows it's Ada.
+
+Each request carries its own proof of who's sending it.
 </details>
 
 **39.** Why store a hash of the session token rather than the token itself?
@@ -493,7 +568,7 @@ Login creates a session and sets a cookie holding a random session token. The br
 
 <details><summary>Answer</summary>
 
-A token is usable as it is: anyone with it is logged in. If the table leaks, hashes can't be used.
+Example: someone copies the `sessions` table. A raw token `Xy7…` could be put straight into a cookie and **they'd be logged in as Ada**. Its SHA-256 can't be: the server would hash it again and find no match.
 </details>
 
 **40.** Why is SHA-256 fine for session tokens, when passwords need bcrypt?
@@ -505,7 +580,9 @@ A token is usable as it is: anyone with it is logged in. If the table leaks, has
 
 <details><summary>Answer</summary>
 
-Tokens are long and random, so they can't be guessed; slowness adds nothing and would slow every request. Passwords are guessable, so they need a slow hash.
+A session token is 32 random bytes: there are far too many possible tokens to guess one. **Slowness only helps against guessable input**, like passwords.
+
+And the token is hashed on every request, so 100ms of bcrypt would slow every page.
 </details>
 
 **41.** What do the cookie flags `HttpOnly`, `Secure` and `SameSite` do?
@@ -517,7 +594,11 @@ Tokens are long and random, so they can't be guessed; slowness adds nothing and 
 
 <details><summary>Answer</summary>
 
-`HttpOnly`: JavaScript can't read it. `Secure`: only sent over HTTPS. `SameSite`: not sent on requests started by other sites.
+Each one blocks a different attack:
+
+- **`HttpOnly`:** an injected script can't do `document.cookie` and steal the session.
+- **`Secure`:** it's never sent over plain HTTP, where anyone on the network could read it.
+- **`SameSite=Lax`:** a form on `evil.com` can't make a `POST` with Ada's cookie.
 </details>
 
 ### Sessions vs JWTs
@@ -531,7 +612,9 @@ Tokens are long and random, so they can't be guessed; slowness adds nothing and 
 
 <details><summary>Answer</summary>
 
-A session token is a random ID the server looks up; a JWT contains the user's details, signed, so the server trusts it without a lookup.
+Example: a session token `Xy7…` means nothing until the server **looks it up** in `sessions`. A JWT says `{"user_id":"123"}` plus a signature, so the server **trusts it without a database query**.
+
+Session: one lookup per request, easy to revoke. JWT: no lookup, hard to revoke.
 </details>
 
 **43.** How do you log a user out everywhere with sessions, and why is it hard with JWTs?
@@ -543,7 +626,9 @@ A session token is a random ID the server looks up; a JWT contains the user's de
 
 <details><summary>Answer</summary>
 
-Delete all their session rows. A JWT has nothing stored to delete, so it stays valid until it expires (unless you add a blocklist).
+Example: Ada's laptop is stolen. With sessions, `DELETE FROM sessions WHERE user_id = 'ada'` **logs her out everywhere at once**.
+
+A JWT is checked by its signature alone, so the stolen one keeps working until it expires.
 </details>
 
 **44.** Is a JWT's payload secret?
@@ -555,7 +640,9 @@ Delete all their session rows. A JWT has nothing stored to delete, so it stays v
 
 <details><summary>Answer</summary>
 
-No. JWTs are usually signed, not encrypted: anyone can read the payload, but can't change it without breaking the signature.
+The payload is just base64, which anyone can decode. Paste a JWT into jwt.io and you'll see `{"user_id":"123"}`.
+
+The signature only stops it being **changed**, not **read**. So never put secrets in it.
 </details>
 
 **45.** How does the server check a JWT's signature?
@@ -567,7 +654,9 @@ No. JWTs are usually signed, not encrypted: anyone can read the payload, but can
 
 <details><summary>Answer</summary>
 
-It recalculates the signature from the token's header and payload using its secret key, and compares it with the token's signature. A mismatch means the token was changed (or not made by this server).
+Example: the token is `header.payload.signature`. The server works out `HMAC(header.payload, secret)` and **compares it with the signature part**.
+
+If someone changed `user_id` from 123 to 456, the recalculated signature won't match, and the token is rejected.
 </details>
 
 **46.** Why can't an attacker change a JWT's payload and make a new valid signature?
@@ -579,7 +668,9 @@ It recalculates the signature from the token's header and payload using its secr
 
 <details><summary>Answer</summary>
 
-Making the signature needs the server's secret key, which never leaves the server.
+Example: an attacker changes `"user_id":"123"` to `"456"`. To make a matching signature, they'd need to work out `HMAC(…, secret)`, and **without the secret they can't**.
+
+So the signature proves the server created the token and nobody changed it.
 </details>
 
 **47.** Does a JWT's payload change from one request to the next? Who makes a new one?
@@ -591,7 +682,9 @@ Making the signature needs the server's secret key, which never leaves the serve
 
 <details><summary>Answer</summary>
 
-No. The client sends the same token, created at login, on every request; only the URL and body change. If the payload needs to change, the server issues a new token with a new signature.
+Example: Ada logs in and gets a token for `user_id 123`. **Every request sends that exact token.** If her role changes, the old token still says the old role until the server **issues a new one**.
+
+Like a cookie, it's the same proof each time.
 </details>
 
 **48.** What are access and refresh tokens, and what problem do they solve?
@@ -603,7 +696,9 @@ No. The client sends the same token, created at login, on every request; only th
 
 <details><summary>Answer</summary>
 
-An access token is a short-lived JWT used on every request; a refresh token is long-lived, stored in the database, and swapped for new access tokens. They fix JWT revocation: delete the refresh token and the user is logged out once the access token expires.
+Example: the access token lasts 15 minutes, the refresh token 30 days. Every 15 minutes, the client swaps the refresh token for a new access token.
+
+To log Ada out, delete her refresh token: **within 15 minutes, her access token expires and can't be renewed**.
 </details>
 
 **49.** Why don't sessions need refresh tokens?
@@ -615,7 +710,9 @@ An access token is a short-lived JWT used on every request; a refresh token is l
 
 <details><summary>Answer</summary>
 
-Every request already checks the `sessions` table, so deleting the row logs the user out immediately.
+With JWTs, the refresh token exists only so there's something stored to delete. Sessions **are already stored**.
+
+Example: `DELETE FROM sessions WHERE token_hash = …` and Ada's next request gets `401`, straight away.
 </details>
 
 ### User enumeration
@@ -629,7 +726,9 @@ Every request already checks the `sessions` table, so deleting the row logs the 
 
 <details><summary>Answer</summary>
 
-Using an app's responses (messages or timing) to find out which emails have accounts.
+Example: login says "No account with that email" for `bo@example.com` but "Wrong password" for `ada@example.com`. An attacker now knows **Ada has an account** and can target her.
+
+Even the time a response takes can give it away.
 </details>
 
 **51.** What two things does login keep identical for an unknown email and a wrong password?
@@ -641,7 +740,9 @@ Using an app's responses (messages or timing) to find out which emails have acco
 
 <details><summary>Answer</summary>
 
-The error message (and status), and the response time.
+Example: for an unknown email, login **still runs bcrypt** on a `dummyHash`, so it takes ~100ms like a real check. Both cases return `401 INVALID_CREDENTIALS`.
+
+Without the dummy hash, unknown emails would answer much faster, and give themselves away.
 </details>
 
 ### Database constraints
@@ -655,7 +756,9 @@ The error message (and status), and the response time.
 
 <details><summary>Answer</summary>
 
-Postgres refuses the delete with a foreign key violation (`23503`).
+Example: `DELETE FROM users WHERE id = 'ada'` while she has two session rows. Those rows would point at a user who doesn't exist, so **Postgres refuses** with `23503`.
+
+The foreign key protects you from orphan rows.
 </details>
 
 **53.** What does `ON DELETE CASCADE` do?
@@ -667,7 +770,9 @@ Postgres refuses the delete with a foreign key violation (`23503`).
 
 <details><summary>Answer</summary>
 
-Deleting the referenced row (the user) also deletes the rows that reference it (their sessions).
+Example: deleting Ada's user row **also deletes her two sessions** in the same statement. Deleting a board deletes its columns, and through those, its cards.
+
+You don't need code to clean up the children.
 </details>
 
 ### Auth middleware
@@ -681,7 +786,9 @@ Deleting the referenced row (the user) also deletes the rows that reference it (
 
 <details><summary>Answer</summary>
 
-A function that wraps a handler and runs on every request to it, before (and after) the handler. In Go: `func(next http.Handler) http.Handler`.
+Example: `RequireAuth` wraps `cardHandler.MoveCard`. Each request to it **runs `RequireAuth` first**, which checks the session, then calls `next.ServeHTTP` to run the handler.
+
+It's like a wrapper component in React: it runs around what it wraps.
 </details>
 
 **55.** How does middleware reject a request?
@@ -693,7 +800,9 @@ A function that wraps a handler and runs on every request to it, before (and aft
 
 <details><summary>Answer</summary>
 
-It writes the error response and returns without calling `next.ServeHTTP`, so the handler never runs.
+Example: no cookie, so `RequireAuth` writes `401 UNAUTHENTICATED` and **returns without calling `next.ServeHTTP`**. The `MoveCard` handler never runs.
+
+Forgetting that `return` would write the error and then run the handler anyway.
 </details>
 
 **56.** How does the auth middleware pass the logged-in user to the handler?
@@ -705,7 +814,9 @@ It writes the error response and returns without calling `next.ServeHTTP`, so th
 
 <details><summary>Answer</summary>
 
-It adds the user to the request's context with `context.WithValue`, and passes on `r.WithContext(ctx)`. The handler reads it back from `r.Context()`.
+Example: `RequireAuth` looks up the session, finds Ada, and does `ctx := context.WithValue(r.Context(), userKey, ada)`. It passes on `r.WithContext(ctx)`.
+
+The handler calls **`userFromContext(r.Context())`** and gets Ada without touching the database.
 </details>
 
 **57.** Why put the session check in middleware rather than in each handler?
@@ -717,7 +828,9 @@ It adds the user to the request's context with `context.WithValue`, and passes o
 
 <details><summary>Answer</summary>
 
-It's written once, it can't be forgotten on a new route, and handlers keep their one job.
+Example: you add `DELETE /columns/{id}` and forget to check the session. **Anyone can delete columns.** With `protected(…)` on the route, the check is applied by the router.
+
+Handlers stay about one thing: the request itself.
 </details>
 
 ### Logout
@@ -731,7 +844,9 @@ It's written once, it can't be forgotten on a new route, and handlers keep their
 
 <details><summary>Answer</summary>
 
-Deleting the session row (server) and clearing the cookie (browser). Deleting the row is what logs them out: the token then matches nothing.
+Example: Ada logs out but only the cookie is cleared. Someone who copied `session=Xy7…` earlier **can still use it**, because the row is still in `sessions`.
+
+Deleting the row makes the token useless everywhere, whoever has it.
 </details>
 
 **59.** Why is logout `POST`, not `GET`?
@@ -743,7 +858,9 @@ Deleting the session row (server) and clearing the cookie (browser). Deleting th
 
 <details><summary>Answer</summary>
 
-A `GET` should never change anything. Browsers, link previews and other sites can send `GET` requests on their own.
+Example: if logout were `GET /logout`, a page on `evil.com` with `<img src="https://yourapp/logout">` would **log Ada out just by being viewed**. A link preview could do it too.
+
+`POST` requests aren't sent by images or previews.
 </details>
 
 **60.** Why does logout return `204` even when there's no cookie or session?
@@ -755,7 +872,9 @@ A `GET` should never change anything. Browsers, link previews and other sites ca
 
 <details><summary>Answer</summary>
 
-The result is the same either way: logged out. That makes it idempotent.
+Example: Ada clicks Log out in two tabs. The second request has no valid session, but **she's logged out either way**, so `204` is the honest answer.
+
+An error here would only confuse the frontend.
 </details>
 
 ### Ownership checks (403 vs 404)
@@ -769,7 +888,9 @@ The result is the same either way: logged out. That makes it idempotent.
 
 <details><summary>Answer</summary>
 
-Authentication: who are you? Authorization: are you allowed to do this?
+Example: Bo's cookie proves he's Bo: that's **authentication**, failing gives `401`. Bo asks for Ada's board, which he's not allowed to see: that's **authorization**.
+
+Authentication always comes first: you can't decide what someone's allowed until you know who they are.
 </details>
 
 **62.** Why does Bo get `404`, not `403`, for Ada's board?
@@ -781,7 +902,9 @@ Authentication: who are you? Authorization: are you allowed to do this?
 
 <details><summary>Answer</summary>
 
-`403` would confirm the board exists, which leaks information. `404` makes "not yours" look the same as "doesn't exist".
+Example: with `403`, Bo could try `/boards/1`, `/boards/2`, … and **learn which IDs exist** from the different answers.
+
+With `404` for both "not yours" and "doesn't exist", he learns nothing.
 </details>
 
 **63.** When someone creates a board, where must the server get its `owner_id` (the user ID) from?
@@ -793,7 +916,9 @@ Authentication: who are you? Authorization: are you allowed to do this?
 
 <details><summary>Answer</summary>
 
-The session (the logged-in user), never the request body.
+Example: if the body could set `owner_id`, Bo could send `{"title":"x","owner_id":"ada"}` and **create a board in Ada's account**.
+
+The session is the only thing the client can't fake, so `userFromContext` gives the owner.
 </details>
 
 **64.** Columns and cards have no `owner_id`. How are they checked?
@@ -805,7 +930,9 @@ The session (the logged-in user), never the request body.
 
 <details><summary>Answer</summary>
 
-Their queries join up to the board (`cards → columns → boards`) and check `boards.owner_id`.
+Ownership is stored once, on the board. A card belongs to Ada if **its column's board is Ada's**.
+
+Example: `GetCardByID` joins `cards → columns → boards` and adds `WHERE b.owner_id = $2`. Bo's ID matches no rows, so he gets `404`.
 </details>
 
 ## 4. Transactions
@@ -821,7 +948,9 @@ Their queries join up to the board (`cards → columns → boards`) and check `b
 
 <details><summary>Answer</summary>
 
-They succeed or fail as one unit: either every change is kept, or none is.
+Example: `MoveCard` updates the card **and** inserts a history row. If the insert fails, the update is undone too.
+
+You never end up with a card moved but no record of the move.
 </details>
 
 **66.** What do the four letters of ACID stand for?
@@ -833,7 +962,12 @@ They succeed or fail as one unit: either every change is kept, or none is.
 
 <details><summary>Answer</summary>
 
-Atomicity (all or nothing), Consistency (constraints still hold), Isolation (others don't see half-finished changes), Durability (committed changes survive a crash).
+Each letter with `MoveCard` as the example:
+
+- **Atomicity:** if the history insert fails, the card's move is undone too.
+- **Consistency:** a foreign key violation fails the whole transaction.
+- **Isolation:** Bo doesn't see the card moved until you commit.
+- **Durability:** once `Commit` returns, a server crash can't lose the move.
 </details>
 
 **67.** When do you need an explicit transaction?
@@ -845,7 +979,9 @@ Atomicity (all or nothing), Consistency (constraints still hold), Isolation (oth
 
 <details><summary>Answer</summary>
 
-When two or more statements must stay in step. A single statement is already its own transaction.
+Example: `DELETE FROM boards WHERE id = $1` is one statement, so it's **already all or nothing**. `MoveCard`'s `UPDATE` and `INSERT` are two, so they need `BeginTx`.
+
+Wrapping single statements in transactions adds work for no gain.
 </details>
 
 ### `BeginTx` / `Commit` / `Rollback`
@@ -859,7 +995,9 @@ When two or more statements must stay in step. A single statement is already its
 
 <details><summary>Answer</summary>
 
-It takes one connection from the pool, sends `BEGIN` on it, and ties the returned `*sql.Tx` to that connection until `Commit` or `Rollback`.
+Every statement in a transaction must run on **the same connection**, because that's where Postgres keeps the transaction.
+
+Example: `MoveCard`'s `SELECT`, `UPDATE` and `INSERT` all go down the one connection that `BeginTx` took. Until `Commit`, no other request can use it.
 </details>
 
 **69.** What's the difference between `Commit` and `Rollback`?
@@ -871,7 +1009,7 @@ It takes one connection from the pool, sends `BEGIN` on it, and ties the returne
 
 <details><summary>Answer</summary>
 
-`Commit` makes every change permanent and visible to others. `Rollback` throws every change since `BEGIN` away.
+Example: after the `UPDATE` and `INSERT` in `MoveCard`, **`Commit`** makes both visible to Bo at once. If either failed, **`Rollback`** puts the card back where it was, as if nothing happened.
 </details>
 
 **70.** What happens to an open transaction if the request's context is cancelled?
@@ -883,7 +1021,9 @@ It takes one connection from the pool, sends `BEGIN` on it, and ties the returne
 
 <details><summary>Answer</summary>
 
-`database/sql` rolls it back automatically.
+Example: Ada closes the tab halfway through `MoveCard`. The context is cancelled, so `database/sql` **rolls back the transaction** and returns the connection to the pool.
+
+Nothing is left half-done.
 </details>
 
 ### `defer tx.Rollback()`
@@ -897,7 +1037,9 @@ It takes one connection from the pool, sends `BEGIN` on it, and ties the returne
 
 <details><summary>Answer</summary>
 
-So every early `return` rolls back, without writing `Rollback` before each one. A forgotten rollback leaves the connection checked out and locks held.
+`MoveCard` has many `return`s. Without `defer`, you'd need `tx.Rollback()` before every error return, and **missing one leaves the transaction open**, holding its locks and connection.
+
+`defer` runs on every return, so you can't forget.
 </details>
 
 **72.** Why is it safe for the deferred `Rollback` to run after a successful `Commit`?
@@ -909,7 +1051,9 @@ So every early `return` rolls back, without writing `Rollback` before each one. 
 
 <details><summary>Answer</summary>
 
-It does nothing and returns `sql.ErrTxDone`, which is ignored.
+Example: `MoveCard` commits, then returns, so the deferred `Rollback` runs. **The transaction is already over**, so it just returns `sql.ErrTxDone` and changes nothing.
+
+That's why one `defer` covers both the failure and the success paths.
 </details>
 
 ### Every query on `tx`, not `db`
@@ -923,7 +1067,7 @@ It does nothing and returns `sql.ErrTxDone`, which is ignored.
 
 <details><summary>Answer</summary>
 
-It runs on a different connection, outside the transaction: it commits on its own, isn't undone by `Rollback`, and can't see the transaction's uncommitted changes.
+Example: in `MoveCard`, if the history `INSERT` used `s.db`, it would **commit straight away on another connection**. If the transaction then rolled back, the card wouldn't move, but the history row would still say it did.
 </details>
 
 **74.** Why doesn't the compiler catch this mistake?
@@ -935,7 +1079,9 @@ It runs on a different connection, outside the transaction: it commits on its ow
 
 <details><summary>Answer</summary>
 
-`*sql.DB` and `*sql.Tx` have the same method names (`ExecContext`, `QueryRowContext`).
+Both types have `ExecContext`, `QueryRowContext` and `QueryContext` with the same arguments, so **`s.db.ExecContext(…)` compiles just as well as `tx.ExecContext(…)`**.
+
+The mistake only shows up when a rollback doesn't undo everything.
 </details>
 
 ### `MoveCard` (`POST /cards/{id}/move`)
@@ -949,7 +1095,9 @@ It runs on a different connection, outside the transaction: it commits on its ow
 
 <details><summary>Answer</summary>
 
-A move does two writes: it changes the card's column and records a row in `card_movements`. Both must happen in one transaction.
+`PUT /cards/{id}` just updates the card's fields. A move also has to **write a `card_movements` row in the same transaction**.
+
+A separate `POST /cards/{id}/move` makes that a named operation the store can do atomically.
 </details>
 
 **76.** Why is the card's current column read inside the transaction?
@@ -961,7 +1109,9 @@ A move does two writes: it changes the card's column and records a row in `card_
 
 <details><summary>Answer</summary>
 
-The history row needs `from_column_id`, and it must be read before the `UPDATE` overwrites it, as part of the same unit of work.
+Example: the card is in `todo`, and you're moving it to `doing`. The history row needs `from_column_id = todo`, but **after the `UPDATE` the card says `doing`**.
+
+Reading it in the same transaction (with `FOR UPDATE`) means nobody can move it in between.
 </details>
 
 **77.** What does "append-only" mean for `card_movements`?
@@ -973,7 +1123,9 @@ The history row needs `from_column_id`, and it must be read before the `UPDATE` 
 
 <details><summary>Answer</summary>
 
-The app only ever adds rows; it never updates them. It's a history log. (Rows are deleted only when their card is, through `ON DELETE CASCADE`.)
+Example: card `c1` goes `todo → doing → done`. That's **two rows, never edited**. To find where it's been, you read the rows in order.
+
+A log you can edit can't be trusted as history.
 </details>
 
 **77a.** What does `MoveCard` do when the card is already in the destination column?
@@ -985,7 +1137,9 @@ The app only ever adds rows; it never updates them. It's a history log. (Rows ar
 
 <details><summary>Answer</summary>
 
-Returns success (`204`) and writes nothing: the card is already where the client asked. The deferred `Rollback` ends the transaction.
+Example: `c1` is in `doing`, and the client asks to move it to `doing`. Writing a `doing → doing` row would be **history of a move that didn't happen**.
+
+So `MoveCard` returns `true` early, and the deferred `Rollback` ends the empty transaction.
 </details>
 
 ### Mapping transaction failures to API errors
@@ -999,7 +1153,9 @@ Returns success (`204`) and writes nothing: the card is already where the client
 
 <details><summary>Answer</summary>
 
-Unchanged. The deferred `Rollback` undid any partial work.
+Example: the card's `UPDATE` worked, then the history `INSERT` failed. **The deferred `Rollback` undoes the `UPDATE`**, so the card is still in its old column, and there's no history row.
+
+The client can safely try again.
 </details>
 
 **79.** Why does the store return `ErrColumnNotFound` instead of a status code?
@@ -1011,7 +1167,9 @@ Unchanged. The deferred `Rollback` undid any partial work.
 
 <details><summary>Answer</summary>
 
-The store shouldn't know about HTTP. It reports what went wrong with a sentinel error; the handler checks it with `errors.Is` and picks `404`.
+`404` is HTTP, and the store only talks to the database.
+
+Example: `MoveCard` returns **`ErrColumnNotFound`**. The handler checks `errors.Is(err, store.ErrColumnNotFound)` and writes `404 COLUMN_NOT_FOUND`. A test fake can return the same error with no database.
 </details>
 
 ## 5. Concurrency
@@ -1027,7 +1185,9 @@ The store shouldn't know about HTTP. It reports what went wrong with a sentinel 
 
 <details><summary>Answer</summary>
 
-A bug where the result depends on **which of two things running at the same time happens first**.
+Example: Ada has two tabs open. Both move card `c1` at the same moment. Whichever request writes last decides where `c1` ends up, and the history may be wrong.
+
+The code is correct when run once. It **only breaks when two runs overlap**, which is why race conditions are hard to spot in testing.
 </details>
 
 **81.** Why can two requests run `MoveCard` at the same moment?
@@ -1039,7 +1199,9 @@ A bug where the result depends on **which of two things running at the same time
 
 <details><summary>Answer</summary>
 
-Go's server handles **each request in its own goroutine**, so requests run concurrently.
+When Ada's two tabs each send `POST /cards/c1/move`, `net/http` **starts a goroutine for each request**. Both run `MoveCard` at the same time, so both can read `c1` before either writes.
+
+You didn't write `go` anywhere; the server does it for you.
 </details>
 
 **82.** What is a lost update?
@@ -1051,7 +1213,9 @@ Go's server handles **each request in its own goroutine**, so requests run concu
 
 <details><summary>Answer</summary>
 
-A write **built on stale data**, so another change is silently overwritten or recorded wrongly. E.g. both tabs read "To Do", so the second move records To Do → Done instead of In Progress → Done.
+Example: both tabs read `c1` as `todo`. Tab 1 moves it to `doing`. Tab 2 still thinks it's in `todo`, so it records **`todo → done` instead of `doing → done`**.
+
+Nothing errors. The bad data is saved silently, so you only notice later.
 </details>
 
 ### `SELECT ... FOR UPDATE`
@@ -1065,7 +1229,9 @@ A write **built on stale data**, so another change is silently overwritten or re
 
 <details><summary>Answer</summary>
 
-**Locks the rows it returns until the transaction ends.** Another transaction trying to lock the same rows waits.
+Example: tab 1 runs `SELECT … FOR UPDATE` on `c1`. Tab 2 runs the same query and **waits** until tab 1 commits. Then tab 2 reads `c1` as `doing`, the up-to-date value, and records `doing → done`.
+
+The second request is made to queue behind the first, which removes the race.
 </details>
 
 **84.** Why does `FOR UPDATE` only work inside a transaction?
@@ -1077,7 +1243,9 @@ A write **built on stale data**, so another change is silently overwritten or re
 
 <details><summary>Answer</summary>
 
-The lock lasts **until the transaction ends**. Without one, the statement is its own transaction and the lock is released straight away.
+Without `BEGIN`, each statement is its own transaction, so the lock is **released as soon as the `SELECT` finishes**.
+
+Then the `UPDATE` that follows is unprotected: another request can change the card in between, and you're back to the race.
 </details>
 
 **85.** With `FOR UPDATE` on card `c1`, does a move of card `c2` have to wait?
@@ -1089,7 +1257,9 @@ The lock lasts **until the transaction ends**. Without one, the statement is its
 
 <details><summary>Answer</summary>
 
-No. **Only the rows selected are locked**, so other cards aren't affected.
+No. `FOR UPDATE` **locks only the rows the `SELECT` returned**, so moving `c1` doesn't block a move of `c2`.
+
+That's why it's cheap: only requests for the same card wait for each other.
 </details>
 
 ### Isolation levels
@@ -1103,7 +1273,9 @@ No. **Only the rows selected are locked**, so other cards aren't affected.
 
 <details><summary>Answer</summary>
 
-**How much one transaction can see of other transactions' changes** while it runs.
+Example: your transaction reads `c1` as `todo`. Meanwhile someone else commits a move to `doing`. When you read `c1` again, do you see `todo` or `doing`?
+
+**The isolation level decides.** Stricter levels hide others' commits until your transaction ends.
 </details>
 
 **87.** What is Postgres's default isolation level, and what does it see?
@@ -1115,7 +1287,9 @@ No. **Only the rows selected are locked**, so other cards aren't affected.
 
 <details><summary>Answer</summary>
 
-**`READ COMMITTED`**: you see other people's changes as soon as they commit.
+Example: your transaction reads `c1` as `todo`. Someone commits a move to `doing`. Your next read in the same transaction **sees `doing`**.
+
+Each statement sees the latest committed data. You never see changes that haven't been committed yet.
 </details>
 
 **88.** What's the cost of a stricter level like `SERIALIZABLE`?
@@ -1127,7 +1301,11 @@ No. **Only the rows selected are locked**, so other cards aren't affected.
 
 <details><summary>Answer</summary>
 
-Postgres may **cancel a transaction with a serialization error (`40001`)**, so the app must retry it.
+Under `SERIALIZABLE`, Postgres won't let two transactions produce a result that couldn't happen if they ran one after the other.
+
+Example: both tabs read `c1` as `todo`. Tab 1 moves it to `doing` and commits. When tab 2 tries to move it, Postgres **cancels tab 2 with `40001`**. Your Go code must catch that error and run tab 2's transaction again from the start.
+
+The cost is that extra retry code, plus the wasted work.
 </details>
 
 **88a.** `READ COMMITTED` gives the most up-to-date data. So what do stricter levels give you?
@@ -1139,7 +1317,9 @@ Postgres may **cancel a transaction with a serialization error (`40001`)**, so t
 
 <details><summary>Answer</summary>
 
-**All the reads in one transaction agree.** Under `READ COMMITTED`, a count and a list read moments apart can contradict each other.
+Example: under `READ COMMITTED`, you count the cards in `todo` and get 3. Someone commits a move. You list the cards in `todo` and get 2. The two reads contradict each other.
+
+Under `REPEATABLE READ`, both reads see 3: **every read in the transaction sees the same snapshot**.
 </details>
 
 ### Optimistic vs pessimistic concurrency
@@ -1153,7 +1333,11 @@ Postgres may **cancel a transaction with a serialization error (`40001`)**, so t
 
 <details><summary>Answer</summary>
 
-**Pessimistic: lock first, others wait** (`FOR UPDATE`). **Optimistic: no lock; check at write time** that nothing changed, and fail if it did.
+Pessimistic: `MoveCard` uses `FOR UPDATE`, so a second move **waits** for the first.
+
+Optimistic: no lock. The `UPDATE` checks the `version` column hasn't changed since you read it, and **fails with `409`** if it has. The user then reloads and tries again.
+
+Use pessimistic when clashes are common and quick; optimistic when they're rare or slow.
 </details>
 
 **90.** With a `version` column, how does the store know someone else changed the card first?
@@ -1165,7 +1349,11 @@ Postgres may **cancel a transaction with a serialization error (`40001`)**, so t
 
 <details><summary>Answer</summary>
 
-The `UPDATE` includes `WHERE version = <the version read>`. If it changed, **no rows match and `RowsAffected()` is 0**. The API returns `409 Conflict`.
+Example: Ada loads card `c1` at `version = 4`. Bo saves it first, so it's now `version = 5`. Ada's save runs:
+
+`UPDATE cards SET title = $1, version = version + 1 WHERE id = $2 AND version = 4`
+
+No row has `version = 4` any more, so **`RowsAffected()` is 0**. The store reports a conflict and the handler returns `409`.
 </details>
 
 **91.** Why do edit forms use optimistic, not pessimistic, concurrency?
@@ -1177,7 +1365,9 @@ The `UPDATE` includes `WHERE version = <the version read>`. If it changed, **no 
 
 <details><summary>Answer</summary>
 
-**A lock can't be held for the minutes a user spends editing.** Optimistic needs no lock; it just checks the version on save.
+A transaction, and its lock, ends when the request ends. Ada opens the form in one request and saves it minutes later in another, so **no lock can last between the two**.
+
+Even if it could, it would block Bo from touching the card while Ada typed. A version check costs nothing until the save.
 </details>
 
 ### Goroutines
@@ -1191,7 +1381,9 @@ The `UPDATE` includes `WHERE version = <the version read>`. If it changed, **no 
 
 <details><summary>Answer</summary>
 
-Starts `sendEmail` **in a new goroutine**, running at the same time. The line returns straight away without waiting.
+Example: in `CreateUser`, sending the welcome email takes 2 seconds. `go sendEmail(user)` runs it **in the background**, so the handler returns `201` straight away instead of making the user wait.
+
+The catch: the handler can't use the email's result or error.
 </details>
 
 **93.** What happens to running goroutines when `main` returns?
@@ -1203,7 +1395,9 @@ Starts `sendEmail` **in a new goroutine**, running at the same time. The line re
 
 <details><summary>Answer</summary>
 
-**They all stop.** The program doesn't wait for goroutines; use `sync.WaitGroup` to wait.
+Example: `main` runs `go sendEmail(user)` and then returns. The email **is never sent**: the goroutine is stopped mid-way.
+
+`sync.WaitGroup` makes `main` wait: `wg.Add(1)` before starting, `wg.Done()` when the goroutine finishes, `wg.Wait()` to block until all are done.
 </details>
 
 ### Mutexes
@@ -1217,7 +1411,9 @@ Starts `sendEmail` **in a new goroutine**, running at the same time. The line re
 
 <details><summary>Answer</summary>
 
-Lets **only one goroutine at a time** run the code between `Lock()` and `Unlock()`.
+Example: two goroutines each run `count++` on `count = 5`. Both read 5 and both write 6, so **one increment is lost**.
+
+With `mu.Lock()` before and `mu.Unlock()` after, the second goroutine waits; the result is 7. It's the Go version of `FOR UPDATE`, but for memory instead of a row.
 </details>
 
 **95.** Why write `defer mu.Unlock()` straight after `mu.Lock()`?
@@ -1229,7 +1425,9 @@ Lets **only one goroutine at a time** run the code between `Lock()` and `Unlock(
 
 <details><summary>Answer</summary>
 
-So **every return unlocks it**: the same pattern as `defer tx.Rollback()`. A forgotten unlock makes every other goroutine wait forever.
+Example: between `Lock()` and `Unlock()` there's an `if err != nil { return err }`. Without `defer`, that return **skips the unlock**, and every other goroutine waits forever.
+
+`defer` runs on every return, so you can't forget.
 </details>
 
 **96.** What does `go test -race` do?
@@ -1241,7 +1439,9 @@ So **every return unlocks it**: the same pattern as `defer tx.Rollback()`. A for
 
 <details><summary>Answer</summary>
 
-Runs the **race detector**, which reports memory used by several goroutines without protection.
+You run `go test -race ./...`. If two goroutines touch the same variable without a mutex or channel, the test fails with **`WARNING: DATA RACE`** and the two lines of code involved.
+
+It's how you find races that would otherwise only show up now and then in production.
 </details>
 
 ### Channels
@@ -1255,7 +1455,9 @@ Runs the **race detector**, which reports memory used by several goroutines with
 
 <details><summary>Answer</summary>
 
-A **typed pipe between goroutines**: one sends with `ch <- v`, another receives with `v := <-ch`.
+Example: a goroutine computes a total and sends it with `results <- 5`. `main` waits at `answer := <-results` until it arrives.
+
+The value **moves from one goroutine to the other**, so they never share a variable, and you don't need a mutex.
 </details>
 
 **98.** What's the difference between `make(chan T)` and `make(chan T, 10)`?
@@ -1267,5 +1469,7 @@ A **typed pipe between goroutines**: one sends with `ch <- v`, another receives 
 
 <details><summary>Answer</summary>
 
-**Unbuffered** (`make(chan T)`): a send waits until someone receives. **Buffered** (`make(chan T, 10)`): holds up to 10 values before a send waits.
+Example: a handler sends jobs to a worker. With `make(chan string)`, each send **waits until the worker takes it**. With `make(chan string, 10)`, the handler can drop off 10 jobs and carry on; it only waits when all 10 slots are full.
+
+Buffered channels are how step 9's job queue lets requests return quickly.
 </details>
