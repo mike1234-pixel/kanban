@@ -1106,16 +1106,16 @@ No. **Only the rows selected are locked**, so other cards aren't affected.
 **How much one transaction can see of other transactions' changes** while it runs.
 </details>
 
-**87.** What is Postgres's default isolation level, and what does each statement see?
+**87.** What is Postgres's default isolation level, and what does it see?
 
-- [ ] `SERIALIZABLE`: as if transactions ran one at a time
-- [ ] `REPEATABLE READ`: data as it was when the transaction started
-- [x] `READ COMMITTED`: everything committed before that statement started
+- [ ] `SERIALIZABLE`: a frozen snapshot, and clashes are cancelled
+- [ ] `REPEATABLE READ`: a frozen snapshot from when the transaction started
+- [x] `READ COMMITTED`: other people's changes as soon as they commit
 - [ ] `READ UNCOMMITTED`: every change, committed or not
 
 <details><summary>Answer</summary>
 
-**`READ COMMITTED`**: each statement sees everything committed before that statement started.
+**`READ COMMITTED`**: you see other people's changes as soon as they commit.
 </details>
 
 **88.** What's the cost of a stricter level like `SERIALIZABLE`?
@@ -1128,6 +1128,18 @@ No. **Only the rows selected are locked**, so other cards aren't affected.
 <details><summary>Answer</summary>
 
 Postgres may **cancel a transaction with a serialization error (`40001`)**, so the app must retry it.
+</details>
+
+**88a.** `READ COMMITTED` gives the most up-to-date data. So what do stricter levels give you?
+
+- [ ] Even newer data
+- [ ] Faster queries
+- [x] All the reads in one transaction agree with each other
+- [ ] No need for transactions
+
+<details><summary>Answer</summary>
+
+**All the reads in one transaction agree.** Under `READ COMMITTED`, a count and a list read moments apart can contradict each other.
 </details>
 
 ### Optimistic vs pessimistic concurrency

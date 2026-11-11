@@ -429,15 +429,29 @@ The history is now correct: To Do → In Progress, then In Progress → Done.
 
 ### Isolation levels
 
-An isolation level sets how much one transaction can see of other transactions' changes while it runs. Postgres has three:
+An isolation level answers one question: **while my transaction is running, do I see changes that other transactions commit?** Postgres has three, from least to most strict.
 
-| Level | What a transaction sees |
-| --- | --- |
-| `READ COMMITTED` (Postgres default) | Each statement sees everything committed before **that statement** started |
-| `REPEATABLE READ` | Every statement sees the data as it was when **the transaction** started |
-| `SERIALIZABLE` | The result is as if the transactions ran **one at a time** |
+Example: card `c1` is in To Do. My transaction reads `c1` twice. Between the two reads, someone else moves `c1` to Done and commits.
 
-Example: transaction T reads card `c1` twice, and another transaction moves `c1` and commits in between. Under `READ COMMITTED`, T's second read sees the new column. Under `REPEATABLE READ`, it still sees the old one.
+| Level | My second read says | In plain words |
+| --- | --- | --- |
+| `READ COMMITTED` (default) | Done | I see other people's changes as soon as they commit |
+| `REPEATABLE READ` | To Do | I see a frozen snapshot from when my transaction started |
+| `SERIALIZABLE` | To Do, and if our changes clash, Postgres cancels one of us | Frozen snapshot, plus no clashes allowed |
+
+`READ COMMITTED` gives the most up-to-date data for each read. But stricter levels aren't about the newest data. They're about **all the reads in one transaction agreeing with each other**.
+
+Example: a transaction builds a report. It counts the cards in To Do, then lists them.
+
+| Level | Count | List | Problem? |
+| --- | --- | --- | --- |
+| `READ COMMITTED` | 3 | 2 cards (one moved away in between) | The report contradicts itself |
+| `REPEATABLE READ` | 3 | the same 3 cards | Consistent, but a moment out of date |
+
+So:
+
+- `READ COMMITTED`: each read is up to date, but two reads can disagree.
+- `REPEATABLE READ` / `SERIALIZABLE`: all the reads agree, but they're from when the transaction started.
 
 - Stricter levels stop more races, but Postgres may cancel one of the transactions with a serialization error (code `40001`). The app must then retry it.
 - In Go: `s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})`. `nil`, as `MoveCard` uses, means the default.
