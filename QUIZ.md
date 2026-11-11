@@ -1013,3 +1013,247 @@ Unchanged. The deferred `Rollback` undid any partial work.
 
 The store shouldn't know about HTTP. It reports what went wrong with a sentinel error; the handler checks it with `errors.Is` and picks `404`.
 </details>
+
+## 5. Concurrency
+
+### Race conditions
+
+**80.** What is a race condition?
+
+- [ ] Two requests that ask for the same URL
+- [x] A bug where the result depends on which of two simultaneous things happens first
+- [ ] A query that runs slower than the request's timeout
+- [ ] Two goroutines that finish at exactly the same time
+
+<details><summary>Answer</summary>
+
+A bug where the result depends on **which of two things running at the same time happens first**.
+</details>
+
+**81.** Why can two requests run `MoveCard` at the same moment?
+
+- [ ] Postgres runs every query twice
+- [ ] The frontend sends every request twice
+- [ ] `MoveCard` starts its own goroutine
+- [x] Go's server handles each request in its own goroutine
+
+<details><summary>Answer</summary>
+
+Go's server handles **each request in its own goroutine**, so requests run concurrently.
+</details>
+
+**82.** What is a lost update?
+
+- [x] A write silently built on data that was already out of date
+- [ ] An `UPDATE` that matches no rows
+- [ ] A write that's rolled back by `Rollback`
+- [ ] An update the client never receives a response for
+
+<details><summary>Answer</summary>
+
+A write **built on stale data**, so another change is silently overwritten or recorded wrongly. E.g. both tabs read "To Do", so the second move records To Do → Done instead of In Progress → Done.
+</details>
+
+### `SELECT ... FOR UPDATE`
+
+**83.** What does `SELECT ... FOR UPDATE` do?
+
+- [ ] Selects the rows and updates them in one statement
+- [ ] Locks the whole table until the transaction ends
+- [x] Locks the selected rows until the transaction ends, so others wait
+- [ ] Marks the rows to be updated by the next query
+
+<details><summary>Answer</summary>
+
+**Locks the rows it returns until the transaction ends.** Another transaction trying to lock the same rows waits.
+</details>
+
+**84.** Why does `FOR UPDATE` only work inside a transaction?
+
+- [ ] Postgres refuses `FOR UPDATE` outside one
+- [ ] It needs `BEGIN` to know which table to lock
+- [ ] It only works with `SERIALIZABLE`
+- [x] The lock is held until `Commit` or `Rollback`, which a transaction provides
+
+<details><summary>Answer</summary>
+
+The lock lasts **until the transaction ends**. Without one, the statement is its own transaction and the lock is released straight away.
+</details>
+
+**85.** With `FOR UPDATE` on card `c1`, does a move of card `c2` have to wait?
+
+- [x] No; only the selected row (`c1`) is locked
+- [ ] Yes; the whole `cards` table is locked
+- [ ] Yes, if `c2` is in the same column
+- [ ] No; `c2` is moved first
+
+<details><summary>Answer</summary>
+
+No. **Only the rows selected are locked**, so other cards aren't affected.
+</details>
+
+### Isolation levels
+
+**86.** What does an isolation level set?
+
+- [ ] How many transactions can run at once
+- [x] How much one transaction sees of others' changes while it runs
+- [ ] Which users can read a table
+- [ ] How long a lock is held
+
+<details><summary>Answer</summary>
+
+**How much one transaction can see of other transactions' changes** while it runs.
+</details>
+
+**87.** What is Postgres's default isolation level, and what does each statement see?
+
+- [ ] `SERIALIZABLE`: as if transactions ran one at a time
+- [ ] `REPEATABLE READ`: data as it was when the transaction started
+- [x] `READ COMMITTED`: everything committed before that statement started
+- [ ] `READ UNCOMMITTED`: every change, committed or not
+
+<details><summary>Answer</summary>
+
+**`READ COMMITTED`**: each statement sees everything committed before that statement started.
+</details>
+
+**88.** What's the cost of a stricter level like `SERIALIZABLE`?
+
+- [ ] Queries can't use indexes
+- [ ] Only one connection can be open
+- [x] Postgres may cancel a transaction (`40001`), and the app must retry it
+- [ ] Committed changes might be lost
+
+<details><summary>Answer</summary>
+
+Postgres may **cancel a transaction with a serialization error (`40001`)**, so the app must retry it.
+</details>
+
+### Optimistic vs pessimistic concurrency
+
+**89.** What's the difference between pessimistic and optimistic concurrency?
+
+- [ ] Pessimistic retries; optimistic waits
+- [x] Pessimistic locks first so others wait; optimistic checks at write time and fails on a change
+- [ ] Pessimistic is for reads; optimistic is for writes
+- [ ] Pessimistic uses goroutines; optimistic uses channels
+
+<details><summary>Answer</summary>
+
+**Pessimistic: lock first, others wait** (`FOR UPDATE`). **Optimistic: no lock; check at write time** that nothing changed, and fail if it did.
+</details>
+
+**90.** With a `version` column, how does the store know someone else changed the card first?
+
+- [ ] Postgres returns error `23505`
+- [ ] The `version` column becomes `NULL`
+- [ ] The `SELECT` returns two rows
+- [x] `UPDATE … WHERE version = $3` matches no rows, so `RowsAffected()` is 0
+
+<details><summary>Answer</summary>
+
+The `UPDATE` includes `WHERE version = <the version read>`. If it changed, **no rows match and `RowsAffected()` is 0**. The API returns `409 Conflict`.
+</details>
+
+**91.** Why do edit forms use optimistic, not pessimistic, concurrency?
+
+- [x] A lock can't be held while the user spends minutes editing
+- [ ] Forms can't send `FOR UPDATE`
+- [ ] Optimistic is always faster
+- [ ] Pessimistic locks don't work over HTTP
+
+<details><summary>Answer</summary>
+
+**A lock can't be held for the minutes a user spends editing.** Optimistic needs no lock; it just checks the version on save.
+</details>
+
+### Goroutines
+
+**92.** What does `go sendEmail(user)` do?
+
+- [ ] Sends the email, then continues
+- [ ] Schedules the email for when `main` returns
+- [x] Runs `sendEmail` at the same time; the line returns straight away
+- [ ] Runs `sendEmail` in a separate program
+
+<details><summary>Answer</summary>
+
+Starts `sendEmail` **in a new goroutine**, running at the same time. The line returns straight away without waiting.
+</details>
+
+**93.** What happens to running goroutines when `main` returns?
+
+- [ ] The program waits for them to finish
+- [x] They all stop
+- [ ] They keep running in the background
+- [ ] They finish their current line, then stop
+
+<details><summary>Answer</summary>
+
+**They all stop.** The program doesn't wait for goroutines; use `sync.WaitGroup` to wait.
+</details>
+
+### Mutexes
+
+**94.** What does a mutex do?
+
+- [ ] Locks a database row
+- [ ] Sends a value between goroutines
+- [ ] Starts a goroutine
+- [x] Lets only one goroutine at a time run a piece of code
+
+<details><summary>Answer</summary>
+
+Lets **only one goroutine at a time** run the code between `Lock()` and `Unlock()`.
+</details>
+
+**95.** Why write `defer mu.Unlock()` straight after `mu.Lock()`?
+
+- [x] So every return unlocks, like `defer tx.Rollback()`
+- [ ] So the mutex unlocks before the code runs
+- [ ] Because `Unlock` must be the last line of the file
+- [ ] So other goroutines can run at the same time
+
+<details><summary>Answer</summary>
+
+So **every return unlocks it**: the same pattern as `defer tx.Rollback()`. A forgotten unlock makes every other goroutine wait forever.
+</details>
+
+**96.** What does `go test -race` do?
+
+- [ ] Runs the tests in parallel to make them faster
+- [ ] Times how long each test takes
+- [x] Reports memory shared between goroutines without protection
+- [ ] Runs each test twice
+
+<details><summary>Answer</summary>
+
+Runs the **race detector**, which reports memory used by several goroutines without protection.
+</details>
+
+### Channels
+
+**97.** What is a channel?
+
+- [ ] A database connection
+- [x] A typed pipe one goroutine sends values into and another receives from
+- [ ] A list that only goroutines can read
+- [ ] A lock shared between goroutines
+
+<details><summary>Answer</summary>
+
+A **typed pipe between goroutines**: one sends with `ch <- v`, another receives with `v := <-ch`.
+</details>
+
+**98.** What's the difference between `make(chan T)` and `make(chan T, 10)`?
+
+- [ ] The first holds one value; the second holds ten
+- [ ] The first is for sending; the second is for receiving
+- [ ] The first can be closed; the second can't
+- [x] Unbuffered: the sender waits for a receiver. Buffered: holds 10 before the sender waits
+
+<details><summary>Answer</summary>
+
+**Unbuffered** (`make(chan T)`): a send waits until someone receives. **Buffered** (`make(chan T, 10)`): holds up to 10 values before a send waits.
+</details>

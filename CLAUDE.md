@@ -133,7 +133,7 @@ Work through the roadmap in order, one step at a time:
 
 <!-- Update this as you progress -->
 
-Working on: step 3 complete; step 4 (transactions) next.
+Working on: step 5 (concurrency). Steps 1–4 are complete.
 
 - Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates).
 - Done: password hashing with bcrypt. `POST /users` requires a password (8–72 characters) and stores only its hash in `users.password_hash`; tested live.
@@ -143,8 +143,9 @@ Working on: step 3 complete; step 4 (transactions) next.
 - Done: ownership checks. `boards.owner_id`; every board, column and card query filters by the logged-in user (columns and cards via joins to `boards`); someone else's resource returns 404. All board, column and card routes are behind `RequireAuth`.
 - Step 3 is complete. Test login: `ada@example.com` / `correct-horse` (owns the existing boards).
 - The frontend has a minimal login page (`AuthGate` checks `GET /me`; `LoginPage`; Log out in the sidebar). Use Chrome or Firefox locally: the `Secure` cookie isn't sent over `http://localhost` in Safari.
-- Next: step 4, transactions.
-- Note: `MoveCard` already runs in a transaction and writes to `card_movements` (step 4 groundwork).
+- Done (step 4): `MoveCard` runs in one transaction (`BeginTx` / `defer tx.Rollback()` / `Commit`), updating the card and writing to `card_movements`. `card_movements` has foreign keys with `ON DELETE CASCADE`; moving a card into its current column writes nothing.
+- Step 5: concept entries and quiz questions (80–98) are written. Next: revise, quiz, then implement.
+- Note: `MoveCard` already uses `SELECT ... FOR UPDATE` (step 5 groundwork). There are no goroutines, mutexes or channels in the backend yet.
 
 ## Commands
 

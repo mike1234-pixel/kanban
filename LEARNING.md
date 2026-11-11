@@ -386,4 +386,140 @@ In every failure case the deferred `Rollback` has already undone the work, so th
 
 `ErrColumnNotFound` is a sentinel error: a package-level `var` the handler checks with `errors.Is`. That way the store reports _what_ went wrong without knowing about HTTP status codes.
 
+Step 4 complete.
+
+## 5. Concurrency
+
+### Race conditions
+
+A race condition is a bug where the result depends on which of two things, running at the same time, happens first.
+
+Go's server handles every request in its own goroutine, so two requests can run `MoveCard` at the same moment. Example: card `c1` is in To Do. Ada has two tabs open. Tab A moves it to In Progress, and tab B moves it to Done, at the same time. **Without a lock:**
+
+| Step | Tab A | Tab B |
+| --- | --- | --- |
+| 1 | reads column: To Do | |
+| 2 | | reads column: To Do |
+| 3 | moves to In Progress, writes To Do → In Progress | |
+| 4 | | moves to Done, writes To Do → Done |
+
+The card ends up in Done, but the history says it moved To Do → Done. It should say In Progress → Done. Tab B decided based on a value that was already out of date.
+
+- This kind is called a **lost update**: one write is silently built on stale data.
+- Races are hard to spot because they only happen when the timing lines up. The same code works most of the time.
+
+### `SELECT ... FOR UPDATE`
+
+`FOR UPDATE` locks the rows a `SELECT` returns until the transaction ends. Any other transaction that tries to lock the same rows **waits**.
+
+`MoveCard` reads the card's column with `FOR UPDATE`. The same two tabs again:
+
+| Step | Tab A | Tab B |
+| --- | --- | --- |
+| 1 | reads To Do, **locks `c1`** | |
+| 2 | | tries to read `c1`: **waits** |
+| 3 | moves to In Progress, commits: **lock released** | |
+| 4 | | now reads In Progress, moves to Done |
+
+The history is now correct: To Do → In Progress, then In Progress → Done.
+
+- It only works inside a transaction: the lock is held until `Commit` or `Rollback`.
+- It only locks the rows selected (`c1`), not the whole table. Moves of other cards don't wait.
+- Locking first, so others wait, is called **pessimistic** concurrency.
+
+### Isolation levels
+
+An isolation level sets how much one transaction can see of other transactions' changes while it runs. Postgres has three:
+
+| Level | What a transaction sees |
+| --- | --- |
+| `READ COMMITTED` (Postgres default) | Each statement sees everything committed before **that statement** started |
+| `REPEATABLE READ` | Every statement sees the data as it was when **the transaction** started |
+| `SERIALIZABLE` | The result is as if the transactions ran **one at a time** |
+
+Example: transaction T reads card `c1` twice, and another transaction moves `c1` and commits in between. Under `READ COMMITTED`, T's second read sees the new column. Under `REPEATABLE READ`, it still sees the old one.
+
+- Stricter levels stop more races, but Postgres may cancel one of the transactions with a serialization error (code `40001`). The app must then retry it.
+- In Go: `s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})`. `nil`, as `MoveCard` uses, means the default.
+- `MoveCard` stays on `READ COMMITTED` and uses `FOR UPDATE` on the one row that matters.
+
+### Optimistic vs pessimistic concurrency
+
+Two ways to stop a lost update:
+
+- **Pessimistic:** lock first, so others wait (`FOR UPDATE`). It assumes a conflict is likely.
+- **Optimistic:** don't lock. At write time, check nothing changed since you read it, and fail if it did. It assumes a conflict is rare.
+
+Optimistic concurrency usually uses a `version` column:
+
+```sql
+UPDATE cards SET title = $1, version = version + 1
+WHERE id = $2 AND version = $3   -- $3: the version the client read
+```
+
+Example: Ada and a second tab both open card `c1` at version `4`. Tab A saves first, and the version becomes `5`. Tab B saves with `version = 4`, matches no rows, and gets `RowsAffected() == 0`. The API returns `409 Conflict`: "someone changed this, reload."
+
+| | Pessimistic | Optimistic |
+| --- | --- | --- |
+| How | Lock the row | Check a version when writing |
+| Others | Wait | Fail with `409` and retry |
+| Good for | Short operations inside one request (`MoveCard`) | Edits where the user takes minutes (an edit form) |
+
+A lock can't be held while a user thinks for five minutes. That's why edit forms use the optimistic approach.
+
+### Goroutines
+
+A goroutine is a function running at the same time as the rest of the program. Start one with `go`:
+
+```go
+go sendEmail(user)   // runs in the background; this line returns straight away
+fmt.Println("done")  // can print before the email is sent
+```
+
+- They're cheap: a server can run thousands. `net/http` starts one per connection, which is why two requests can run `MoveCard` at once.
+- The program doesn't wait for them. When `main` returns, every goroutine stops.
+- To wait for several, use `sync.WaitGroup`: `wg.Add(1)` before each, `wg.Done()` at the end of each, and `wg.Wait()` to wait for all of them.
+
+### Mutexes
+
+A mutex (mutual exclusion) lets only one goroutine at a time run a piece of code. It's `FOR UPDATE` for Go memory instead of database rows.
+
+```go
+var (
+    mu    sync.Mutex
+    count int
+)
+
+func addOne() {
+    mu.Lock()
+    defer mu.Unlock()
+    count++
+}
+```
+
+Without the mutex, two goroutines can both read `count = 7`, both add 1, and both write `8`. One addition is lost: the same lost update as the two tabs.
+
+- `defer mu.Unlock()` straight after `Lock()`, so every return unlocks. It's the same pattern as `defer tx.Rollback()`.
+- Only memory shared between goroutines needs one. The database already has its own locks.
+- `go test -race` runs the race detector, which reports unprotected shared memory.
+
+### Channels
+
+A channel is a typed pipe that one goroutine sends values into and another receives them from.
+
+```go
+jobs := make(chan string)    // a channel of strings
+
+go func() {
+    jobs <- "send welcome email"   // send: waits until someone receives
+}()
+
+job := <-jobs                // receive: waits until someone sends
+```
+
+- An unbuffered channel (`make(chan T)`) makes the sender wait for a receiver. A buffered one (`make(chan T, 10)`) holds up to 10 values before the sender waits.
+- `close(jobs)` says no more values are coming. `for job := range jobs` receives until the channel is closed.
+- Go's rule of thumb: rather than sharing memory and locking it with a mutex, pass the value over a channel, so only one goroutine has it at a time.
+- Step 8's job queue is a channel of jobs with worker goroutines receiving from it.
+
 Go syntax lives in `LEARNING_GO.md`.
