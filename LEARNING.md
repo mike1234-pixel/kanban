@@ -534,6 +534,6 @@ job := <-jobs                // receive: waits until someone sends
 - An unbuffered channel (`make(chan T)`) makes the sender wait for a receiver. A buffered one (`make(chan T, 10)`) holds up to 10 values before the sender waits.
 - `close(jobs)` says no more values are coming. `for job := range jobs` receives until the channel is closed.
 - Go's rule of thumb: rather than sharing memory and locking it with a mutex, pass the value over a channel, so only one goroutine has it at a time.
-- Step 8's job queue is a channel of jobs with worker goroutines receiving from it.
+- Step 9's job queue is a channel of jobs with worker goroutines receiving from it.
 
 Go syntax lives in `LEARNING_GO.md`.
