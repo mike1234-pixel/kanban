@@ -531,7 +531,18 @@ go func() {
 job := <-jobs                // receive: waits until someone sends
 ```
 
-- An unbuffered channel (`make(chan T)`) makes the sender wait for a receiver. A buffered one (`make(chan T, 10)`) holds up to 10 values before the sender waits.
+- "Waits" means **the goroutine pauses on that line** and doesn't run the next line yet, like `await`:
+
+  ```go
+  ch <- "hello"         // pauses here until another goroutine runs <-ch
+  fmt.Println("sent")   // runs only after the value is taken
+  ```
+
+- **Unbuffered** (`make(chan T)`): no values can wait inside the channel, so every send pauses until a receiver takes the value.
+- **Buffered** (`make(chan T, 10)`): up to 10 sent values can wait inside until they're received (you choose the number). A send only pauses when the channel is full.
+- **Unbuffered is the default.** Use it unless you have a reason not to:
+  - Unbuffered: when the sender should know the value has been taken, e.g. waiting for a goroutine's result.
+  - Buffered: when the sender shouldn't have to wait for the receiver, e.g. step 9's job queue, where a handler drops a job in and returns straight away.
 - `close(jobs)` says no more values are coming. `for job := range jobs` receives until the channel is closed.
 - Go's rule of thumb: rather than sharing memory and locking it with a mutex, pass the value over a channel, so only one goroutine has it at a time.
 - Step 9's job queue is a channel of jobs with worker goroutines receiving from it.
