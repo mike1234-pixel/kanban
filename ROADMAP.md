@@ -15,7 +15,7 @@ Work through these in order. Don't add several at once.
 11. **Observability:** structured logging with `log/slog`, request IDs, latency and query timing, error tracking, metrics
 12. **Testing**
 13. **Docker + deployment**
-14. **Production architecture:** includes service-to-service communication with gRPC (HTTP/2, Protocol Buffers, `.proto` contracts) vs REST. Exercise: move the notification worker (step 9) into its own service and call it over gRPC.
+14. **Production architecture:** system design for scaling: load balancers, running several API servers (horizontal scaling, and why sessions in Postgres make that easy), database read replicas, and rate limiting. Also service-to-service communication with gRPC (HTTP/2, Protocol Buffers, `.proto` contracts) vs REST. Exercise: move the notification worker (step 9) into its own service and call it over gRPC.
 
 ## Schedule
 
