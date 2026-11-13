@@ -134,7 +134,7 @@ Work through the roadmap in order, one step at a time:
 
 <!-- Update this as you progress -->
 
-Working on: step 5 (concurrency). Steps 1–4 are complete.
+Working on: step 6 (database tooling + migrations). Steps 1–5 are complete.
 
 - Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates).
 - Done: password hashing with bcrypt. `POST /users` requires a password (8–72 characters) and stores only its hash in `users.password_hash`; tested live.
@@ -145,10 +145,11 @@ Working on: step 5 (concurrency). Steps 1–4 are complete.
 - Step 3 is complete. Test login: `ada@example.com` / `correct-horse` (owns the existing boards).
 - The frontend has a minimal login page (`AuthGate` checks `GET /me`; `LoginPage`; Log out in the sidebar). Use Chrome or Firefox locally: the `Secure` cookie isn't sent over `http://localhost` in Safari.
 - Done (step 4): `MoveCard` runs in one transaction (`BeginTx` / `defer tx.Rollback()` / `Commit`), updating the card and writing to `card_movements`. `card_movements` has foreign keys with `ON DELETE CASCADE`; moving a card into its current column writes nothing.
-- Step 5: concept entries and quiz questions (80–98) are written. Next: revise, quiz, then implement.
-- Done (step 5, item 2): optimistic concurrency on `PUT /cards/{id}`. `cards.version` (README has the `ALTER`), `ErrVersionConflict` → `409 CARD_VERSION_CONFLICT`, `MoveCard` bumps the version, the frontend sends it. Tested live.
-- `TestMoveCardConcurrent` (`store/cards_test.go`) moves one card from two goroutines against the real Postgres; it found and now guards #8 (fixed: `MoveCard` locks the card with a join-free `FOR UPDATE`, then checks ownership).
-- Note: `MoveCard` already uses `SELECT ... FOR UPDATE` (step 5 groundwork). There are no goroutines, mutexes or channels in the backend yet.
+- Done (step 5): concepts revised and quizzed (revisit later).
+  - Pessimistic: `MoveCard` locks the card with a join-free `SELECT … FOR UPDATE`, then checks ownership (#8 fixed). `TestMoveCardConcurrent` (`store/cards_test.go`) moves one card from two goroutines against the real Postgres.
+  - Optimistic: `PUT /cards/{id}` sends `version`; `ErrVersionConflict` → `409 CARD_VERSION_CONFLICT`; `MoveCard` bumps the version too; the frontend sends it. `cards.version` is in the README (with the `ALTER`). Tested live.
+  - Go concurrency is only in tests so far: `TestUpdateCardConcurrent` (`handlers/concurrency_test.go`) uses goroutines, a `WaitGroup`, a `sync.Mutex` in an in-memory store, and a buffered results channel. No production code uses goroutines, mutexes or channels yet (the job queue is step 9).
+  - Store tests that need Postgres skip themselves when `backend/.env` is missing.
 
 ## Commands
 

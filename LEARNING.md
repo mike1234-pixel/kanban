@@ -554,5 +554,8 @@ job := <-jobs                // receive: waits until someone sends
 - `close(jobs)` says no more values are coming. `for job := range jobs` receives until the channel is closed.
 - Go's rule of thumb: rather than sharing memory and locking it with a mutex, pass the value over a channel, so only one goroutine has it at a time.
 - Step 9's job queue is a channel of jobs with worker goroutines receiving from it.
+- In this codebase, `TestUpdateCardConcurrent` (`handlers/concurrency_test.go`) has each goroutine send its status code over a buffered channel; the test closes it after `wg.Wait()` and ranges over it. Unbuffered, the sends would wait forever, because nothing receives until every goroutine is done: a deadlock.
+
+Step 5 complete.
 
 Go syntax lives in `LEARNING_GO.md`.

@@ -58,7 +58,9 @@ func TestUpdateCardConcurrent(t *testing.T) {
 	handler := CardHandler{Store: mem, Validate: testValidator()}
 
 	const saves = 10
-	codes := make([]int, saves) // each goroutine writes only its own index
+	// Each goroutine sends its status code here. Buffered with room for every
+	// code, so no send has to wait: nothing receives until all saves are done.
+	codes := make(chan int, saves)
 	var wg sync.WaitGroup
 	for i := range saves {
 		wg.Add(1)
@@ -69,13 +71,14 @@ func TestUpdateCardConcurrent(t *testing.T) {
 			request.SetPathValue("id", cardID)
 			response := httptest.NewRecorder()
 			handler.UpdateCard(response, asUser(request))
-			codes[i] = response.Code
+			codes <- response.Code
 		}()
 	}
 	wg.Wait()
+	close(codes) // every code has been sent, so range below knows when to stop
 
 	wins, conflicts := 0, 0
-	for _, code := range codes {
+	for code := range codes { // receives each code until the channel is empty and closed
 		switch code {
 		case 200:
 			wins++
