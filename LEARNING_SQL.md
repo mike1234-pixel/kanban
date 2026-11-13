@@ -243,5 +243,46 @@ How to read a plan:
 | `ExecContext` | Writes with no rows back | A result: `RowsAffected()` |
 
 - `Scan(&a, &b)` copies the columns, in order, into Go variables. It needs pointers to fill them in.
+- `BeginTx` returns a `*sql.Tx` with the same three methods. Inside a transaction, use them on `tx`, never `s.db`.
 
-Coming later: transactions (`BeginTx`, `COMMIT`, `ROLLBACK`, step 4) and `SELECT … FOR UPDATE` (step 5).
+## Transactions and locking
+
+Concepts are in `LEARNING.md` (steps 4 and 5); this is the SQL.
+
+### `BEGIN`, `COMMIT`, `ROLLBACK`
+
+```sql
+BEGIN;
+UPDATE cards SET column_id = 'doing' WHERE id = 'c1';
+INSERT INTO card_movements (card_id, from_column_id, to_column_id) VALUES ('c1', 'todo', 'doing');
+COMMIT;   -- or ROLLBACK; to undo both
+```
+
+- Go sends these for you: `BeginTx` sends `BEGIN`, `tx.Commit()` sends `COMMIT`, `tx.Rollback()` sends `ROLLBACK`.
+- Without `BEGIN`, each statement is its own transaction and commits straight away.
+- In psql, an error inside a transaction aborts it: every later statement fails until you `ROLLBACK`.
+
+### `SELECT … FOR UPDATE`
+
+Reads rows and locks them until the transaction ends. Another transaction that tries to lock the same rows waits.
+
+```sql
+SELECT column_id FROM cards WHERE id = $1 FOR UPDATE
+```
+
+- Only the selected rows are locked, not the table.
+- **Keep it to one table, with no joins or `EXISTS`.** After waiting, Postgres re-reads only the locked row, so other tables in the query can be out of date (#8). Check anything else in a second query.
+
+### `version = version + 1`
+
+```sql
+UPDATE cards SET title = $1, version = version + 1
+WHERE id = $2 AND version = $3
+```
+
+- The right-hand `version` is the row's current value, so this adds 1 to it.
+- `WHERE version = $3` only matches if nobody changed the row since it was read (optimistic concurrency, step 5). No match means `RowsAffected()` is 0.
+
+### `gen_random_uuid()`
+
+A built-in Postgres function (version 13+) that returns a new random UUID. The test helpers use it with `RETURNING id` to create rows: `INSERT INTO boards (id, …) VALUES (gen_random_uuid(), …) RETURNING id`.

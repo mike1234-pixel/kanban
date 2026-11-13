@@ -504,7 +504,7 @@ fmt.Println("done")  // can print before the email is sent
 
 ### Mutexes
 
-A mutex (mutual exclusion) lets only one goroutine at a time run a piece of code. It's `FOR UPDATE` for Go memory instead of database rows.
+A mutex (mutual exclusion) lets only one goroutine at a time run a piece of code. It's `FOR UPDATE` (a pessimistic lock) for Go memory instead of database rows.
 
 ```go
 var (

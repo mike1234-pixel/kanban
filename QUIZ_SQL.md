@@ -470,3 +470,53 @@ Go passes values by copy. `Scan(u.ID)` would get **a copy of the empty `ID`** an
 
 `Scan(&u.ID, &u.Name)` gives it the addresses, so it can write the row's values into your variables. Same idea as `Decode(&user)`.
 </details>
+
+## Transactions and locking
+
+### `BEGIN`, `COMMIT`, `ROLLBACK`
+
+**31.** Without `BEGIN`, when does an `UPDATE` commit?
+
+- [ ] When the connection closes
+- [x] Straight away: each statement is its own transaction
+- [ ] At the next `COMMIT`
+- [ ] When the next statement runs
+
+<details><summary>Answer</summary>
+
+Example: `UPDATE cards …` then `INSERT INTO card_movements …`, with no `BEGIN`. The `UPDATE` is **saved the moment it finishes**, so if the `INSERT` fails, the card has moved with no history row.
+
+`BEGIN` makes both wait for one `COMMIT`.
+</details>
+
+### `SELECT … FOR UPDATE`
+
+**32.** Why should a `FOR UPDATE` query avoid joining other tables?
+
+- [ ] Joins can't be used with `FOR UPDATE`
+- [ ] It would lock every joined table
+- [ ] Joins are too slow inside a transaction
+- [x] After waiting, only the locked row is re-read, so joined rows can be stale
+
+<details><summary>Answer</summary>
+
+Example: `MoveCard` waited while another move changed `c1` from `todo` to `doing`. Postgres **re-read the card (`doing`) but kept the old joined column (`todo`)**, so the `EXISTS` check failed and the card looked missing (#8).
+
+Lock the one row on its own, then check the rest in a second query.
+</details>
+
+### `version = version + 1`
+
+**33.** In `UPDATE cards SET version = version + 1 WHERE id = $1 AND version = $2`, what does `version = $2` do?
+
+- [x] Only matches if the row is still at the version the client read
+- [ ] Sets the version to `$2`
+- [ ] Adds `$2` to the version
+- [ ] Locks the row until `$2` changes
+
+<details><summary>Answer</summary>
+
+Example: Ada read version 4, but Bo saved first, so the row is at version 5. **`version = 4` matches nothing**, `RowsAffected()` is 0, and Ada gets `409`.
+
+If nobody saved in between, it matches, and `SET version = version + 1` makes it 5.
+</details>

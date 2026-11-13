@@ -908,3 +908,77 @@ Example: from `backend/`, `go test ./...` runs the tests in `internal/handlers`,
 
 `go test .` would only run tests in `backend/` itself.
 </details>
+
+## Concurrency
+
+### `go func() { … }()`
+
+**58.** What do the `()` at the end of `go func() { … }()` do?
+
+- [ ] Wait for the goroutine to finish
+- [x] Call the anonymous function, in a new goroutine
+- [ ] Return the goroutine's result
+- [ ] Pass the loop variable into the function
+
+<details><summary>Answer</summary>
+
+`func() { … }` only defines a function. **The `()` calls it**, and `go` in front makes that call run in a new goroutine.
+
+Without the `()`, it won't compile: `go` needs a function call, not a function.
+</details>
+
+### `sync.WaitGroup`
+
+**59.** What do `wg.Add(1)`, `wg.Done()` and `wg.Wait()` do?
+
+- [ ] Start a goroutine, stop it, and restart it
+- [ ] Lock, unlock, and wait for a lock
+- [x] Count one more goroutine, mark one finished, pause until all have finished
+- [ ] Send a value, receive it, and close the channel
+
+<details><summary>Answer</summary>
+
+Example: `TestUpdateCardConcurrent` calls `wg.Add(1)` 10 times, and each goroutine calls `wg.Done()` when its save is finished. **`wg.Wait()` pauses until the count is back to 0**, so the test only checks the results once all 10 saves are done.
+</details>
+
+**60.** Why call `wg.Add(1)` before `go`, not inside the goroutine?
+
+- [ ] `Add` panics inside a goroutine
+- [ ] Goroutines can't use variables from outside
+- [ ] `Done` must come before `Add`
+- [x] Otherwise `Wait` might run before the goroutine has been counted
+
+<details><summary>Answer</summary>
+
+A new goroutine may not start running straight away. If `Add` were inside it, `wg.Wait()` could see a count of 0 and **return before any goroutine had been counted**, so the test would check results that don't exist yet.
+</details>
+
+### `sync.Mutex`
+
+**61.** Why does `memCardStore` lock around the read **and** the write, not just the write?
+
+- [x] So no other save can read the old version between them
+- [ ] Because a map can't be read without a lock
+- [ ] So the write happens before the read
+- [ ] Because `defer` only works with two calls
+
+<details><summary>Answer</summary>
+
+Example: with only the write locked, goroutines A and B both **read version 1**, both pass the check, and both save: two `200`s, a lost update.
+
+Locking the read, check and write together makes them one step, like Postgres's `UPDATE … WHERE version = $n`.
+</details>
+
+**62.** Why should a struct with a `sync.Mutex` use pointer receivers?
+
+- [ ] A mutex can't be used with value receivers at all
+- [ ] Pointer receivers are faster
+- [x] A value receiver gets a copy, and a copied mutex doesn't guard the original
+- [ ] The mutex's zero value is `nil`
+
+<details><summary>Answer</summary>
+
+Example: with `func (s memCardStore) UpdateCard`, each call gets **its own copy of the struct, including its own unlocked mutex**. Every goroutine locks a different mutex, so nothing waits.
+
+`func (s *memCardStore)` shares one mutex between all calls. `go vet` warns about copied mutexes.
+</details>

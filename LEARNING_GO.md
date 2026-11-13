@@ -90,6 +90,7 @@ Go's only loop keyword.
 for rows.Next() { ... }           // like "while"
 for i := 0; i < 3; i++ { ... }    // classic counter
 for i, card := range cards { ... } // each index and element
+for i := range 10 { ... }          // i = 0, 1, … 9
 ```
 
 ### Type conversion
@@ -412,3 +413,63 @@ func TestCreateUser(t *testing.T) {
 - `t.Fatalf` fails and stops the test; `t.Errorf` fails and keeps going.
 - `httptest.NewRequest` and `httptest.NewRecorder` call a handler without a real server.
 - Run with `go test ./...` (`./...` means this folder and every folder below it).
+- In a helper, `t.Helper()` makes a failure point at the test's line, not the helper's.
+- `t.Cleanup(func() { … })` runs when the test ends: the test version of `defer`.
+- `t.Skip("reason")` skips a test, e.g. the store tests when there's no database.
+- `go test -race ./...` adds the race detector: it fails the test if goroutines touch the same memory without protection.
+
+## Concurrency
+
+Used in the concurrency tests (`store/cards_test.go`, `handlers/concurrency_test.go`). Concepts are in `LEARNING.md`, step 5.
+
+### `go func() { … }()`
+
+Starts an anonymous function in a new goroutine. The `()` at the end calls it.
+
+```go
+go func() {
+	defer wg.Done()
+	codes[i] = response.Code
+}()
+```
+
+- The line returns straight away; the function runs at the same time as the code after it.
+- It's a closure, so it can use variables from around it (`i`, `codes`). Since Go 1.22, each loop round gets its own `i`.
+
+### `sync.WaitGroup`
+
+Waits for a group of goroutines to finish.
+
+```go
+var wg sync.WaitGroup
+wg.Add(1)             // one more goroutine to wait for
+go func() {
+	defer wg.Done()   // this one has finished
+	// ...
+}()
+wg.Wait()             // pause until every Add has had a Done
+```
+
+- Call `Add` before `go`, not inside the goroutine, or `Wait` might run before it's counted.
+- Its zero value is ready to use.
+
+### `sync.Mutex`
+
+Lets one goroutine at a time run the code between `Lock` and `Unlock`.
+
+```go
+type memCardStore struct {
+	mu    sync.Mutex
+	cards map[string]models.Card
+}
+
+func (s *memCardStore) UpdateCard(…) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// read, check and write s.cards
+}
+```
+
+- Put the mutex next to the data it guards, in the same struct.
+- `defer Unlock()` straight after `Lock()`, so every return unlocks.
+- Its zero value is unlocked and ready. Use a pointer receiver: copying a struct copies its mutex, and the copy doesn't guard anything.
