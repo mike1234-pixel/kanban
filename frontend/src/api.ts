@@ -4,6 +4,7 @@ export type Card = {
   title: string
   description: string
   order: number
+  version: number // send it back on update; the API returns 409 if someone else saved first
 }
 
 export type Column = {
@@ -84,7 +85,7 @@ export const api = {
   createColumn: (boardId: string, title: string, position: number) => request<Column>('/columns', {
     method: 'POST', body: JSON.stringify({ id: crypto.randomUUID(), board_id: boardId, title, position }),
   }),
-  createCard: (card: Omit<Card, 'id'>) => request<Card>('/cards', {
+  createCard: (card: Omit<Card, 'id' | 'version'>) => request<Card>('/cards', {
     method: 'POST', body: JSON.stringify({ ...card, id: crypto.randomUUID() }),
   }),
   updateCard: (id: string, card: Omit<Card, 'id'>) => request<Card>(`/cards/${id}`, {

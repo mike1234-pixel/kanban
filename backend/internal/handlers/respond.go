@@ -20,7 +20,8 @@ const (
 	codeColumnNotFound   = "COLUMN_NOT_FOUND"
 	codeColumnIDRequired = "COLUMN_ID_REQUIRED"
 
-	codeCardNotFound = "CARD_NOT_FOUND"
+	codeCardNotFound        = "CARD_NOT_FOUND"
+	codeCardVersionConflict = "CARD_VERSION_CONFLICT"
 
 	codeUserNotFound   = "USER_NOT_FOUND"
 	codeUserIDRequired = "USER_ID_REQUIRED"

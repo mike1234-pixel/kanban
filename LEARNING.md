@@ -482,6 +482,13 @@ Example: Ada and a second tab both open card `c1` at version `4`. Tab A saves fi
 
 A lock can't be held while a user thinks for five minutes. That's why edit forms use the optimistic approach.
 
+In this codebase, `PUT /cards/{id}` is optimistic:
+
+- Every card in a response has `version`. The frontend sends back the version it had when the editor opened.
+- `RowsAffected() == 0` can also mean the card is missing or isn't yours. So the store reads the card: if it's yours and **its version has moved on**, it returns `ErrVersionConflict`, and the handler returns `409 CARD_VERSION_CONFLICT`. Otherwise it's `404`.
+- `MoveCard` bumps `version` too. A `PUT` sends every field, including `column_id`, so an edit opened before a move would otherwise put the card back in its old column.
+- A `PUT` with no `version` is `400`: there'd be nothing to compare.
+
 ### Goroutines
 
 A goroutine is a function running at the same time as the rest of the program. Start one with `go`:

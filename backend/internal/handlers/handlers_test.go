@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -37,7 +38,9 @@ type testStore struct {
 
 	updateBoard func(models.Board) (bool, error)
 
-	saveCard func(card models.Card, ownerID string) (bool, error)
+	saveCard   func(card models.Card, ownerID string) (bool, error)
+	updateCard func(id string, card models.Card, ownerID string) (bool, error)
+	getCard    func(id, ownerID string) (models.Card, error)
 
 	saveColumn   func(col models.Column, ownerID string) (bool, error)
 	getColumn    func(id, ownerID string) (models.Column, error)
@@ -46,6 +49,14 @@ type testStore struct {
 
 func (s testStore) SaveCard(_ context.Context, card models.Card, ownerID string) (bool, error) {
 	return s.saveCard(card, ownerID)
+}
+
+func (s testStore) UpdateCard(_ context.Context, id string, card models.Card, ownerID string) (bool, error) {
+	return s.updateCard(id, card, ownerID)
+}
+
+func (s testStore) GetCardByID(_ context.Context, id, ownerID string) (models.Card, error) {
+	return s.getCard(id, ownerID)
 }
 
 func (s testStore) SaveColumn(_ context.Context, col models.Column, ownerID string) (bool, error) {
@@ -310,6 +321,67 @@ func TestMoveCard(t *testing.T) {
 		handler.MoveCard(response, asUser(request))
 
 		assertError(t, response, 404, codeColumnNotFound)
+	})
+}
+
+func TestUpdateCard(t *testing.T) {
+	const cardID = "c2ee0000-0000-4000-8000-000000000001"
+	body := func(version int) string {
+		return fmt.Sprintf(`{"id":%q,"column_id":"a5fc3aed-6138-4e57-a8ec-3059d343eb83","title":"Fix bug","order":0,"version":%d}`, cardID, version)
+	}
+	put := func(handler CardHandler, version int) *httptest.ResponseRecorder {
+		request := httptest.NewRequest("PUT", "/cards/"+cardID, strings.NewReader(body(version)))
+		request.SetPathValue("id", cardID)
+		response := httptest.NewRecorder()
+		handler.UpdateCard(response, asUser(request))
+		return response
+	}
+
+	t.Run("saves with the version it read", func(t *testing.T) {
+		handler := CardHandler{
+			Store: testStore{
+				updateCard: func(_ string, card models.Card, _ string) (bool, error) {
+					if card.Version != 3 {
+						t.Fatalf("store got version %d, want 3", card.Version)
+					}
+					return true, nil
+				},
+				getCard: func(string, string) (models.Card, error) {
+					return models.Card{ID: cardID, Title: "Fix bug", Version: 4}, nil
+				},
+			},
+			Validate: testValidator(),
+		}
+
+		response := put(handler, 3)
+
+		if response.Code != 200 || !strings.Contains(response.Body.String(), `"version":4`) {
+			t.Fatalf("status = %d, body = %s; want 200 with the new version 4", response.Code, response.Body)
+		}
+	})
+
+	t.Run("returns 409 when someone else saved first", func(t *testing.T) {
+		handler := CardHandler{
+			Store:    testStore{updateCard: func(string, models.Card, string) (bool, error) { return false, store.ErrVersionConflict }},
+			Validate: testValidator(),
+		}
+
+		assertError(t, put(handler, 3), 409, codeCardVersionConflict)
+	})
+
+	t.Run("rejects a save without a version", func(t *testing.T) {
+		called := false
+		handler := CardHandler{
+			Store:    testStore{updateCard: func(string, models.Card, string) (bool, error) { called = true; return true, nil }},
+			Validate: testValidator(),
+		}
+
+		response := put(handler, 0)
+
+		if called {
+			t.Fatal("store was called without a version")
+		}
+		assertError(t, response, 400, codeValidationFailed)
 	})
 }
 

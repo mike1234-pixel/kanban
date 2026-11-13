@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type Board, type Card } from '../api'
+import { api, ApiError, type Board, type Card } from '../api'
 import type { CardFormValues } from '../CardEditor'
 import type { TitleFormValues } from '../TitleEditor'
 
@@ -54,7 +54,16 @@ export const useBoardWorkspace = () => {
       setEditingCard(null)
       setNotice('Changes saved')
     },
-    onError: (error) => setNotice(error instanceof Error ? error.message : 'Something went wrong'),
+    onError: async (error) => {
+      // Someone else changed the card since it was opened: load the latest
+      // version and close the editor, so the next edit starts from it.
+      if (error instanceof ApiError && error.code === 'CARD_VERSION_CONFLICT') {
+        await refreshBoard()
+        setModal(null)
+        setEditingCard(null)
+      }
+      setNotice(error instanceof Error ? error.message : 'Something went wrong')
+    },
   })
 
   const openCard = (columnId: string, card?: Card) => {
@@ -75,6 +84,7 @@ export const useBoardWorkspace = () => {
         description,
         column_id: editingCard.column_id,
         order: editingCard.order,
+        version: editingCard.version,
       }))
       return
     }

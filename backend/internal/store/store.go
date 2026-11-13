@@ -17,6 +17,10 @@ var ErrBoardExists = errors.New("board already exists")
 // exist or belongs to another user.
 var ErrColumnNotFound = errors.New("column not found")
 
+// ErrVersionConflict is returned when a card is updated with a version that
+// isn't its current one: someone else changed it since it was read.
+var ErrVersionConflict = errors.New("card version conflict")
+
 type Store interface {
 	//#region Card Operations
 	SaveCard(ctx context.Context, card models.Card, ownerID string) (bool, error)

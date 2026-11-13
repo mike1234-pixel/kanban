@@ -2,10 +2,13 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
 	"testing"
+
+	"kanban/internal/models"
 
 	"github.com/joho/godotenv"
 )
@@ -147,5 +150,47 @@ func TestMoveCardOtherOwner(t *testing.T) {
 	}
 	if found {
 		t.Fatal("Bo moved Ada's card; want not found")
+	}
+}
+
+// TestUpdateCardVersion saves two edits that both read version 1. The first
+// wins and bumps the card to version 2; the second must get ErrVersionConflict.
+func TestUpdateCardVersion(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	b := seedBoard(t, s)
+
+	ada := models.Card{ColumnID: b.todo, Title: "Ada's title", Version: 1}
+	if ok, err := s.UpdateCard(ctx, b.cardID, ada, b.ownerID); !ok || err != nil {
+		t.Fatalf("first save: ok=%v err=%v", ok, err)
+	}
+
+	bo := models.Card{ColumnID: b.todo, Title: "Bo's title", Version: 1} // stale: read before Ada saved
+	if _, err := s.UpdateCard(ctx, b.cardID, bo, b.ownerID); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("second save: want ErrVersionConflict, got %v", err)
+	}
+
+	card, err := s.GetCardByID(ctx, b.cardID, b.ownerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if card.Title != "Ada's title" || card.Version != 2 {
+		t.Fatalf("want Ada's title at version 2, got %q at version %d", card.Title, card.Version)
+	}
+}
+
+// TestMoveCardBumpsVersion: an edit read before a move must conflict, or
+// saving it would put the card back in its old column.
+func TestMoveCardBumpsVersion(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	b := seedBoard(t, s)
+
+	if _, err := s.MoveCard(ctx, b.cardID, b.doing, b.ownerID); err != nil {
+		t.Fatal(err)
+	}
+	staleEdit := models.Card{ColumnID: b.todo, Title: "edited", Version: 1} // read while the card was in todo
+	if _, err := s.UpdateCard(ctx, b.cardID, staleEdit, b.ownerID); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("want ErrVersionConflict, got %v", err)
 	}
 }

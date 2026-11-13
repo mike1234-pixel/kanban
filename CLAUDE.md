@@ -146,6 +146,7 @@ Working on: step 5 (concurrency). Steps 1–4 are complete.
 - The frontend has a minimal login page (`AuthGate` checks `GET /me`; `LoginPage`; Log out in the sidebar). Use Chrome or Firefox locally: the `Secure` cookie isn't sent over `http://localhost` in Safari.
 - Done (step 4): `MoveCard` runs in one transaction (`BeginTx` / `defer tx.Rollback()` / `Commit`), updating the card and writing to `card_movements`. `card_movements` has foreign keys with `ON DELETE CASCADE`; moving a card into its current column writes nothing.
 - Step 5: concept entries and quiz questions (80–98) are written. Next: revise, quiz, then implement.
+- Done (step 5, item 2): optimistic concurrency on `PUT /cards/{id}`. `cards.version` (README has the `ALTER`), `ErrVersionConflict` → `409 CARD_VERSION_CONFLICT`, `MoveCard` bumps the version, the frontend sends it. Tested live.
 - `TestMoveCardConcurrent` (`store/cards_test.go`) moves one card from two goroutines against the real Postgres; it found and now guards #8 (fixed: `MoveCard` locks the card with a join-free `FOR UPDATE`, then checks ownership).
 - Note: `MoveCard` already uses `SELECT ... FOR UPDATE` (step 5 groundwork). There are no goroutines, mutexes or channels in the backend yet.
 

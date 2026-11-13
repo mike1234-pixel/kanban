@@ -112,8 +112,18 @@ func (h *CardHandler) UpdateCard(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, codeValidationFailed, err.Error())
 		return
 	}
+	// The version the client read. Without it there's nothing to compare, and
+	// the save could overwrite someone else's change.
+	if card.Version < 1 {
+		writeError(w, http.StatusBadRequest, codeValidationFailed, "version is required")
+		return
+	}
 
 	success, err := h.Store.UpdateCard(r.Context(), id, card, user.ID)
+	if errors.Is(err, store.ErrVersionConflict) {
+		writeError(w, http.StatusConflict, codeCardVersionConflict, "Someone else changed this card. Reload it and try again.")
+		return
+	}
 	if err != nil {
 		writeInternalError(w, r, err)
 		return

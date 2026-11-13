@@ -92,19 +92,22 @@ func (s *PostgresStore) GetCardByID(ctx context.Context, id, ownerID string) (mo
 
 // #region Update Card
 // UpdateCard only updates the card if both its current column and its new
-// column belong to ownerID; otherwise it returns false.
+// column belong to ownerID; otherwise it returns false. It also only updates
+// if updated.Version is still the card's version (optimistic concurrency),
+// and bumps the version; if someone changed the card first, it returns
+// ErrVersionConflict.
 func (s *PostgresStore) UpdateCard(ctx context.Context, id string, updated models.Card, ownerID string) (bool, error) {
 	query := `
 		UPDATE cards ca
-		SET column_id = $1, title = $2, description = $3, "order" = $4
-		WHERE ca.id = $5
+		SET column_id = $1, title = $2, description = $3, "order" = $4, version = ca.version + 1
+		WHERE ca.id = $5 AND ca.version = $7
 		  AND EXISTS (
 			SELECT 1 FROM columns col JOIN boards b ON b.id = col.board_id
 			WHERE col.id = ca.column_id AND b.owner_id = $6)
 		  AND EXISTS (
 			SELECT 1 FROM columns col JOIN boards b ON b.id = col.board_id
 			WHERE col.id = $1 AND b.owner_id = $6)`
-	result, err := s.db.ExecContext(ctx, query, updated.ColumnID, updated.Title, updated.Description, updated.Order, id, ownerID)
+	result, err := s.db.ExecContext(ctx, query, updated.ColumnID, updated.Title, updated.Description, updated.Order, id, ownerID, updated.Version)
 
 	if err != nil {
 		return false, err
@@ -115,8 +118,20 @@ func (s *PostgresStore) UpdateCard(ctx context.Context, id string, updated model
 	if err != nil {
 		return false, err
 	}
+	if rowsAffected > 0 {
+		return true, nil
+	}
 
-	return rowsAffected > 0, nil
+	// No row matched. If the card is yours but its version has moved on,
+	// someone saved first; otherwise it's missing or not yours.
+	current, err := s.GetCardByID(ctx, id, ownerID)
+	if err != nil {
+		return false, err
+	}
+	if current.ID != "" && current.Version != updated.Version {
+		return false, ErrVersionConflict
+	}
+	return false, nil
 }
 
 // MoveCard changes a card's column and records the move atomically. It returns
@@ -170,7 +185,9 @@ func (s *PostgresStore) MoveCard(ctx context.Context, id, columnID, ownerID stri
 	if !canMoveThere {
 		return false, ErrColumnNotFound
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE cards SET column_id = $1 WHERE id = $2`, columnID, id); err != nil {
+	// Bump the version too, so an edit form opened before this move gets a
+	// conflict instead of saving the old column back.
+	if _, err := tx.ExecContext(ctx, `UPDATE cards SET column_id = $1, version = version + 1 WHERE id = $2`, columnID, id); err != nil {
 		return false, err
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO card_movements (card_id, from_column_id, to_column_id) VALUES ($1, $2, $3)`, id, fromColumnID, columnID); err != nil {
