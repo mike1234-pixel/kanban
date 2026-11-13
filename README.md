@@ -64,6 +64,7 @@ CREATE TABLE cards (
   title VARCHAR(150) NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   "order" INTEGER NOT NULL CHECK ("order" >= 0),
+  version INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -89,6 +90,12 @@ ALTER TABLE card_movements
   ADD FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
   ADD FOREIGN KEY (from_column_id) REFERENCES columns(id) ON DELETE CASCADE,
   ADD FOREIGN KEY (to_column_id) REFERENCES columns(id) ON DELETE CASCADE;
+```
+
+If your `cards` table was created before it had a `version` column (used to detect two people editing the same card), add it once by hand. Existing cards start at version 1:
+
+```sql
+ALTER TABLE cards ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
 ```
 
 ### 2. Start the API

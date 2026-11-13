@@ -62,7 +62,7 @@ func (s *PostgresStore) GetColumnsWithCards(ctx context.Context, boardID, ownerI
 	}
 
 	// 2. Fetch cards
-	cardQuery := `SELECT id, column_id, title, description, "order" FROM cards ORDER BY "order" ASC`
+	cardQuery := `SELECT id, column_id, title, description, "order", version FROM cards ORDER BY "order" ASC`
 	cardRows, err := s.db.QueryContext(ctx, cardQuery)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func (s *PostgresStore) GetColumnsWithCards(ctx context.Context, boardID, ownerI
 
 	for cardRows.Next() {
 		var card models.Card
-		if err := cardRows.Scan(&card.ID, &card.ColumnID, &card.Title, &card.Description, &card.Order); err != nil {
+		if err := cardRows.Scan(&card.ID, &card.ColumnID, &card.Title, &card.Description, &card.Order, &card.Version); err != nil {
 			return nil, err
 		}
 		if idx, exists := colMap[card.ColumnID]; exists {

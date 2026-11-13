@@ -28,7 +28,7 @@ func (s *PostgresStore) SaveCard(ctx context.Context, card models.Card, ownerID 
 func (s *PostgresStore) GetCards(ctx context.Context, ownerID string) ([]models.Card, error) {
 
 	query := `
-		SELECT ca.id, ca.column_id, ca.title, ca.description, ca."order"
+		SELECT ca.id, ca.column_id, ca.title, ca.description, ca."order", ca.version
 		FROM cards ca
 		JOIN columns col ON col.id = ca.column_id
 		JOIN boards b ON b.id = col.board_id
@@ -47,7 +47,7 @@ func (s *PostgresStore) GetCards(ctx context.Context, ownerID string) ([]models.
 	for rows.Next() {
 		var c models.Card
 
-		if err := rows.Scan(&c.ID, &c.ColumnID, &c.Title, &c.Description, &c.Order); err != nil {
+		if err := rows.Scan(&c.ID, &c.ColumnID, &c.Title, &c.Description, &c.Order, &c.Version); err != nil {
 			return nil, err
 		}
 
@@ -67,7 +67,7 @@ func (s *PostgresStore) GetCards(ctx context.Context, ownerID string) ([]models.
 func (s *PostgresStore) GetCardByID(ctx context.Context, id, ownerID string) (models.Card, error) {
 
 	query := `
-		SELECT ca.id, ca.column_id, ca.title, ca.description, ca."order"
+		SELECT ca.id, ca.column_id, ca.title, ca.description, ca."order", ca.version
 		FROM cards ca
 		JOIN columns col ON col.id = ca.column_id
 		JOIN boards b ON b.id = col.board_id
@@ -75,7 +75,7 @@ func (s *PostgresStore) GetCardByID(ctx context.Context, id, ownerID string) (mo
 
 	var c models.Card
 
-	err := s.db.QueryRowContext(ctx, query, id, ownerID).Scan(&c.ID, &c.ColumnID, &c.Title, &c.Description, &c.Order)
+	err := s.db.QueryRowContext(ctx, query, id, ownerID).Scan(&c.ID, &c.ColumnID, &c.Title, &c.Description, &c.Order, &c.Version)
 
 	if err == sql.ErrNoRows { // query ran successfully, but there wasn't a card matching what I asked for.
 		return models.Card{}, nil // return empty card to signal not found

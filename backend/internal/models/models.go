@@ -34,6 +34,7 @@ type Card struct {
 	Title       string `json:"title" validate:"required,min=1,max=150"`
 	Description string `json:"description" validate:"max=1000"`
 	Order       int    `json:"order" validate:"gte=0"`
+	Version     int    `json:"version"` // bumped on every change; PUT must send the version it read
 }
 
 //#endregion

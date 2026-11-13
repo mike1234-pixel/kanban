@@ -45,6 +45,7 @@ func (h *CardHandler) CreateCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	card.Version = 1 // the insert doesn't set version, so the column's DEFAULT 1 applies
 	writeJSON(w, http.StatusCreated, card)
 }
 
