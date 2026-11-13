@@ -129,18 +129,29 @@ func (s *PostgresStore) MoveCard(ctx context.Context, id, columnID, ownerID stri
 	}
 	defer tx.Rollback()
 
+	// Lock the card on its own. With a join in this query, a move that waited
+	// for the lock would recheck the card's new column against the old joined
+	// column, match nothing and report "not found" (#8).
 	var fromColumnID string
-	err = tx.QueryRowContext(ctx, `
-		SELECT ca.column_id FROM cards ca
-		WHERE ca.id = $1 AND EXISTS (
-			SELECT 1 FROM columns col JOIN boards b ON b.id = col.board_id
-			WHERE col.id = ca.column_id AND b.owner_id = $2)
-		FOR UPDATE`, id, ownerID).Scan(&fromColumnID)
+	err = tx.QueryRowContext(ctx, `SELECT column_id FROM cards WHERE id = $1 FOR UPDATE`, id).Scan(&fromColumnID)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
+	}
+
+	// Now the card is locked, check it's ownerID's.
+	var ownsCard bool
+	err = tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM columns col JOIN boards b ON b.id = col.board_id
+			WHERE col.id = $1 AND b.owner_id = $2)`, fromColumnID, ownerID).Scan(&ownsCard)
+	if err != nil {
+		return false, err
+	}
+	if !ownsCard {
+		return false, nil
 	}
 	// Already there: nothing to change or record. The deferred Rollback ends
 	// the transaction.

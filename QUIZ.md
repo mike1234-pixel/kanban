@@ -1262,6 +1262,20 @@ No. `FOR UPDATE` **locks only the rows the `SELECT` returned**, so moving `c1` d
 That's why it's cheap: only requests for the same card wait for each other.
 </details>
 
+**85a.** Why does `MoveCard` lock the card with a query that has no join?
+
+- [ ] Joins can't be used inside a transaction
+- [ ] `FOR UPDATE` locks every table in a join
+- [x] After waiting, Postgres re-reads only the locked row, so a join can go stale
+- [ ] A join makes the lock last after `Commit`
+
+<details><summary>Answer</summary>
+
+Example: tab 2 waits while tab 1 moves `c1` from `todo` to `doing`. When tab 2 wakes, Postgres **re-reads the card (`doing`) but reuses the column it joined before (`todo`)**. `col.id = ca.column_id` no longer matches, so the query returns no rows and the move says "not found" (#8).
+
+Locking with `SELECT column_id FROM cards WHERE id = $1 FOR UPDATE`, then checking ownership separately, leaves nothing to go stale.
+</details>
+
 ### Isolation levels
 
 **86.** What does an isolation level set?

@@ -76,18 +76,22 @@ func TestMoveCardConcurrent(t *testing.T) {
 
 		var wg sync.WaitGroup
 		var errDoing, errDone error
+		var foundDoing, foundDone bool
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			_, errDoing = s.MoveCard(ctx, b.cardID, b.doing, b.ownerID)
+			foundDoing, errDoing = s.MoveCard(ctx, b.cardID, b.doing, b.ownerID)
 		}()
 		go func() {
 			defer wg.Done()
-			_, errDone = s.MoveCard(ctx, b.cardID, b.done, b.ownerID)
+			foundDone, errDone = s.MoveCard(ctx, b.cardID, b.done, b.ownerID)
 		}()
 		wg.Wait() // block until both goroutines have called Done
 		if errDoing != nil || errDone != nil {
 			t.Fatalf("round %d: move failed: %v, %v", round, errDoing, errDone)
+		}
+		if !foundDoing || !foundDone {
+			t.Fatalf("round %d: a move reported the card as not found (found: doing=%v, done=%v)", round, foundDoing, foundDone)
 		}
 
 		rows, err := s.db.QueryContext(ctx,
@@ -129,4 +133,19 @@ func columnName(b board, id string) string {
 		return "done"
 	}
 	return id
+}
+
+// TestMoveCardOtherOwner checks someone else's card is reported as not found.
+func TestMoveCardOtherOwner(t *testing.T) {
+	s := testStore(t)
+	ada := seedBoard(t, s)
+	bo := seedBoard(t, s)
+
+	found, err := s.MoveCard(context.Background(), ada.cardID, ada.doing, bo.ownerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found {
+		t.Fatal("Bo moved Ada's card; want not found")
+	}
 }

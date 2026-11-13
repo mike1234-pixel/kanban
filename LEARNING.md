@@ -361,7 +361,7 @@ Request: `POST /cards/c1/move` with `{"column_id": "done"}`. Success is `204`.
 
 Inside one transaction, `store.MoveCard`:
 
-1. Reads the card's current column (`todo`), checking via `boards.owner_id` that it's yours. If it's already in the destination column, it stops here and returns success: nothing is changed or recorded, and the deferred `Rollback` ends the transaction.
+1. Locks the card and reads its current column (`todo`), then checks via `boards.owner_id` that it's yours. If it's already in the destination column, it stops here and returns success: nothing is changed or recorded, and the deferred `Rollback` ends the transaction.
 2. Checks the destination column exists and is on one of your boards.
 3. `UPDATE cards` to the new column.
 4. `INSERT INTO card_movements` with `from_column_id = todo`, `to_column_id = done`.
@@ -426,6 +426,7 @@ The history is now correct: To Do → In Progress, then In Progress → Done.
 - It only works inside a transaction: the lock is held until `Commit` or `Rollback`.
 - It only locks the rows selected (`c1`), not the whole table. Moves of other cards don't wait.
 - Locking first, so others wait, is called **pessimistic** concurrency.
+- **Keep the `FOR UPDATE` query to the one table you're locking**, with no joins or `EXISTS` on other tables. After waiting, Postgres re-reads only the locked row, not the other tables, so a join can compare the card's new column with the old one, match nothing, and return no rows. `MoveCard` had this bug (#8): it locks with `SELECT column_id FROM cards WHERE id = $1 FOR UPDATE`, then checks ownership in a second query.
 
 ### Isolation levels
 
