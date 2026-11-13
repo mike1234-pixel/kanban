@@ -353,6 +353,8 @@ type Store interface {
 
 - `*PostgresStore` and the test's `testStore` both satisfy `Store`, so handlers work with either.
 - Embedding an interface in a struct (`testStore` embeds `store.Store`) satisfies it with no methods written; calling one you didn't write panics.
+- 🧩 **Pattern: repository.** `Store` puts all data access behind one interface. Handlers ask for "a card" without knowing it comes from Postgres.
+- 🧩 **Pattern: dependency injection.** Handlers are given their store (`CardHandler{Store: dbStore}`) instead of creating it, so a test can give them a fake. The fake is called a **test double**.
 
 ## Errors
 
@@ -382,7 +384,7 @@ if err != nil {
 
 ### Sentinel errors
 
-A named error value that callers can check for.
+A named error value that callers can check for. 🧩 **Pattern: sentinel error.**
 
 ```go
 var ErrEmailTaken = errors.New("email already in use")

@@ -250,7 +250,7 @@ The database enforces what must never happen, even if the Go code has a bug.
 
 ### Auth middleware
 
-Middleware is code that runs before a handler, on every request to that handler. In Go it's a function that takes a handler and returns a new handler that wraps it: `func(next http.Handler) http.Handler`. The new handler can do some work first, then call `next.ServeHTTP(w, r)` to run the original handler, or skip that call to stop the request there.
+Middleware is code that runs before a handler, on every request to that handler. 🧩 **Pattern: middleware**, a form of the **decorator** pattern: wrap something to add behaviour without changing it. In Go it's a function that takes a handler and returns a new handler that wraps it: `func(next http.Handler) http.Handler`. The new handler can do some work first, then call `next.ServeHTTP(w, r)` to run the original handler, or skip that call to stop the request there.
 
 `RequireAuth` (`handlers/middleware.go`) uses this to protect routes. `Me` is not part of it: it's an ordinary handler that returns the logged-in user's details, which a frontend can call to check whether someone is logged in. When a request for `GET /me` arrives, the router passes it to `RequireAuth` first. `RequireAuth` reads the `session` cookie, hashes its token, and calls `GetSessionUser`. If there's no cookie, or the query finds no unexpired session, it writes `401 UNAUTHENTICATED` and returns. Because it never calls `next`, the `Me` handler doesn't run.
 
@@ -553,7 +553,7 @@ job := <-jobs                // receive: waits until someone sends
   - Buffered: when the sender shouldn't have to wait for the receiver, e.g. step 9's job queue, where a handler drops a job in and returns straight away.
 - `close(jobs)` says no more values are coming. `for job := range jobs` receives until the channel is closed.
 - Go's rule of thumb: rather than sharing memory and locking it with a mutex, pass the value over a channel, so only one goroutine has it at a time.
-- Step 9's job queue is a channel of jobs with worker goroutines receiving from it.
+- Step 9's job queue is a channel of jobs with worker goroutines receiving from it. 🧩 **Pattern: worker pool** (also called producer–consumer).
 - In this codebase, `TestUpdateCardConcurrent` (`handlers/concurrency_test.go`) has each goroutine send its status code over a buffered channel; the test closes it after `wg.Wait()` and ranges over it. Unbuffered, the sends would wait forever, because nothing receives until every goroutine is done: a deadlock.
 
 Step 5 complete.

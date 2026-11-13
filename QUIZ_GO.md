@@ -801,9 +801,33 @@ No `implements Store` line is needed; Go checks the methods.
 
 <details><summary>Answer</summary>
 
-Example: `NewBoardHandler(store)` accepts anything with the `Store` methods. Tests pass a **fake that keeps boards in a map**, so they run without Postgres.
+Example: `BoardHandler{Store: dbStore}` accepts anything with the `Store` methods. Tests pass a **fake `testStore`** instead, so they run without Postgres.
 
 The handler can't tell the difference, which is the point.
+</details>
+
+**50a.** Which two design patterns does the `Store` interface give us?
+
+- [ ] Singleton and factory
+- [ ] Middleware and decorator
+- [x] Repository and dependency injection
+- [ ] Worker pool and observer
+
+<details><summary>Answer</summary>
+
+**Repository:** all data access sits behind `Store`, so handlers never see SQL. **Dependency injection:** handlers are given a `Store` (`CardHandler{Store: dbStore}`) instead of making one, so tests can give them a fake.
+</details>
+
+**50b.** What's a test double?
+
+- [ ] A test that runs twice to catch flaky failures
+- [x] A stand-in for a real dependency, like the fake store
+- [ ] A copy of the database used only by tests
+- [ ] A second assertion that checks the first
+
+<details><summary>Answer</summary>
+
+Example: `testStore` and `memCardStore` stand in for `PostgresStore`, so handler tests **run without a database**. Dependency injection is what lets you swap one in.
 </details>
 
 ## Errors

@@ -28,6 +28,8 @@ Also:
 
 - Explain briefly why the code you write is idiomatic Go.
 
+- Name design patterns explicitly. When code or an entry uses one (repository, dependency injection, middleware/decorator, worker pool…), say its name and add a `🧩 **Pattern: name.**` line (the 🧩 marks it as a design pattern) to the entry that explains it. No separate patterns file.
+
 - Don't silently fix bugs.
 
 - Connect new work back to the layers it touches: TCP → HTTP → router → middleware → handler → store → Postgres → response.

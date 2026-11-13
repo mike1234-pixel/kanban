@@ -833,6 +833,18 @@ Example: you add `DELETE /columns/{id}` and forget to check the session. **Anyon
 Handlers stay about one thing: the request itself.
 </details>
 
+**57a.** Which design pattern is middleware a form of?
+
+- [ ] Repository
+- [ ] Singleton
+- [x] Decorator
+- [ ] Observer
+
+<details><summary>Answer</summary>
+
+**Decorator: wrap something to add behaviour without changing it.** `RequireAuth(next)` returns a new handler that checks the session, then calls `next`. The `Me` handler itself has no auth code at all.
+</details>
+
 ### Logout
 
 **58.** What are the two halves of logout, and which one actually logs the user out?
