@@ -1676,6 +1676,34 @@ Example: the README has "if your table was created before…" `ALTER`s for `card
 Migrations fix this: `goose up` applies whatever that database is missing.
 </details>
 
+**110a.** When do migrations run locally?
+
+- [ ] Automatically, whenever a new migration file is saved
+- [ ] Automatically, whenever Postgres starts up
+- [x] Only when something runs the tool: you, or the API on startup
+- [ ] Automatically, whenever you pull from git
+
+<details><summary>Answer</summary>
+
+Nothing watches the files. If you pull `00008_add_column_index.sql` and forget `goose up`, the API runs against the old schema and fails.
+
+That's why the API **calls `goose.Up` in `main.go` before starting the server**, so it can't run against an out-of-date database.
+</details>
+
+**110b.** How does goose know which migrations a database still needs?
+
+- [ ] It compares the files with the tables that currently exist
+- [x] It checks its own table, `goose_db_version`, for the ones already run
+- [ ] It reruns every file, and Postgres skips the ones already applied
+- [ ] It reads the latest migration number from `README.md`
+
+<details><summary>Answer</summary>
+
+Each migration that runs is recorded as a row in `goose_db_version`. If the table says 1–7 have run and there are 8 files, **only file 8 runs**.
+
+That's why you never edit a migration that has already run: goose sees it's recorded and won't run it again.
+</details>
+
 ### Big O
 
 **111.** What is the Big O of a full table scan, and of an index lookup?

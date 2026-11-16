@@ -698,8 +698,17 @@ ALTER TABLE cards DROP COLUMN version;
 
 - `goose up` runs every migration the database hasn't had yet; `goose down` undoes the last one.
 - Every database (yours, a teammate's, production) ends up with **the same schema, built the same way**.
+- Git keeps the history: what changed, when, and why.
+- A migration can change data as well as tables (step 7 moves `boards.owner_id` to `workspace_id`).
 - Once a migration has run anywhere, never edit it. Write a new one.
 - Replaces the hand-run SQL in `README.md`.
+
+**When they run:** only when something runs the tool, so nothing happens on its own.
+
+- Run by hand, you have to remember to run `goose up` after pulling a new migration. If you forget, the API fails because a column is missing.
+- So the API can **run them itself on startup**: `main.go` calls `goose.Up(db, "migrations")` before starting the server. The database is always up to date when the API runs. This is the plan here.
+- On deploy, they run before the new code starts (step 13).
+- Each run checks goose's table (`goose_db_version`) and runs only the files not yet recorded there.
 
 **Schema drift** is when databases that should match don't. This project already has it: the README has two "if your table was created before…" `ALTER`s (the `card_movements` foreign keys and `cards.version`). A database where nobody ran them fails at run time, e.g. `column "version" does not exist`.
 
