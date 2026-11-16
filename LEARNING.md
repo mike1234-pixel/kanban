@@ -559,3 +559,162 @@ job := <-jobs                // receive: waits until someone sends
 Step 5 complete.
 
 Go syntax lives in `LEARNING_GO.md`.
+
+## 6. Database Tooling
+
+### What `database/sql` boilerplate costs
+
+`database/sql` makes you write every step by hand: the SQL, `Scan` with one pointer per column, `rows.Next()`, `rows.Err()`, `rows.Close()`, and an `if err != nil` after each call. The store is about 600 lines, most of them this kind of code.
+
+The real cost shows up when the schema changes. Adding `cards.version` in step 5 meant editing **three `SELECT`s and three `Scan`s by hand** (`GetCards`, `GetCardByID`, `ListColumns`):
+
+```go
+SELECT ca.id, ca.column_id, ca.title, ca.description, ca."order", ca.version
+...Scan(&c.ID, &c.ColumnID, &c.Title, &c.Description, &c.Order, &c.Version)
+```
+
+- The column list and the `Scan` list must match in number **and order**. Swap two and the values land in the wrong fields.
+- The compiler checks none of it. A typo in the SQL, or a `Scan` with the wrong count, only fails when the query runs.
+- The upside: nothing is hidden. You see exactly what SQL runs, which is why this project started here.
+
+### sqlx
+
+A library that adds helpers on top of `database/sql`. You still write the SQL, but sqlx **fills structs from rows by column name**, using `db` tags.
+
+```go
+type Card struct {
+	ID       string `db:"id"`
+	ColumnID string `db:"column_id"`
+}
+
+var cards []Card
+err := db.SelectContext(ctx, &cards, `SELECT id, column_id FROM cards WHERE column_id = $1`, columnID)
+```
+
+- `SelectContext` (many rows) and `GetContext` (one row) replace the `rows.Next()` loop and the `Scan` list.
+- Columns are matched by name, so their order no longer matters.
+- Still checked only at run time: a misspelt column fails when the query runs.
+
+### sqlc
+
+A tool that **generates Go code from SQL**. You write each query in a `.sql` file with a name, and `sqlc generate` writes a typed Go function for it.
+
+```sql
+-- name: GetCardByID :one
+SELECT id, column_id, title, description, "order", version FROM cards WHERE id = $1;
+```
+
+generates:
+
+```go
+func (q *Queries) GetCardByID(ctx context.Context, id string) (Card, error)
+```
+
+- sqlc reads your schema, so **a wrong column name fails at `sqlc generate`, before the app runs**.
+- `:one` returns one row, `:many` a slice, `:exec` nothing.
+- You still write and see every query; sqlc only writes the Go around it.
+- 🧩 **Pattern: code generation.** The generated file is never edited by hand; you change the SQL and generate again.
+
+### ORMs
+
+An ORM (object-relational mapper, e.g. GORM) **generates the SQL from Go code**. You work with structs and methods; the ORM writes the queries.
+
+```go
+db.Where("column_id = ?", columnID).Find(&cards)   // GORM writes the SELECT
+```
+
+- Less code for simple create/read/update/delete.
+- **The SQL is hidden**, so it's easy to write slow queries without noticing. The classic one is **N+1**: load 20 columns (1 query), then each column's cards (20 more queries), instead of one query with a join.
+- Complex queries (like `MoveCard`'s `FOR UPDATE`, or `INSERT … SELECT … WHERE EXISTS`) are often harder in the ORM than in plain SQL.
+
+| | You write | Checked | SQL visible |
+| --- | --- | --- | --- |
+| `database/sql` | SQL + every `Scan` | at run time | yes |
+| sqlx | SQL | at run time | yes |
+| sqlc | SQL | at generate time | yes |
+| ORM | Go | at run time | no |
+
+This step converts one store file to sqlc and compares.
+
+### Migrations
+
+A migration is a numbered SQL file that changes the schema one step. A tool (e.g. goose) runs them in order and records which have run, in a table in the database.
+
+```sql
+-- 00007_add_card_version.sql
+-- +goose Up
+ALTER TABLE cards ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+
+-- +goose Down
+ALTER TABLE cards DROP COLUMN version;
+```
+
+- `goose up` runs every migration the database hasn't had yet; `goose down` undoes the last one.
+- Every database (yours, a teammate's, production) ends up with **the same schema, built the same way**.
+- Once a migration has run anywhere, never edit it. Write a new one.
+- Replaces the hand-run SQL in `README.md`.
+
+**Schema drift** is when databases that should match don't. This project already has it: the README has two "if your table was created before…" `ALTER`s (the `card_movements` foreign keys and `cards.version`). A database where nobody ran them fails at run time, e.g. `column "version" does not exist`.
+
+### Big O
+
+Big O describes how the work grows as the data grows. `n` is the number of rows.
+
+| | Name | 1,000 rows | 1,000,000 rows |
+| --- | --- | --- | --- |
+| O(1) | constant | 1 step | 1 step |
+| O(log n) | logarithmic | ~10 steps | ~20 steps |
+| O(n) | linear | 1,000 steps | 1,000,000 steps |
+
+- A **full table scan** (`Seq Scan`) checks every row: **O(n)**.
+- An **index lookup** is **O(log n)**: 1,000 times more rows only adds about 10 steps.
+- A Go map lookup (`colMap[c.ID]`) is O(1); looping over a slice to find an item is O(n).
+
+### B-tree indexes
+
+Postgres indexes are B-trees by default: a **sorted tree** where each node holds many keys and points to the nodes below it.
+
+```
+              [ 400 | 800 ]
+             /      |      \
+     [100|250]  [500|650]  [900|950]
+         ↓          ↓          ↓
+       rows       rows       rows
+```
+
+To find 650: start at the top (650 is between 400 and 800), go to the middle node, find 650. Each level cuts the search down, so a lookup is O(log n). With hundreds of keys per node, even millions of rows are only 3–4 levels deep.
+
+- Sorted, so a B-tree also helps `ORDER BY`, `<` and `>`, not just `=`.
+- Every write must also update the tree, which is the cost of an index (see `LEARNING_SQL.md`).
+
+### `EXPLAIN ANALYZE`
+
+`EXPLAIN` shows the plan Postgres would use; `EXPLAIN ANALYZE` **runs the query** and adds the real numbers.
+
+Real output from this project's database (`EXPLAIN ANALYZE SELECT * FROM cards WHERE column_id = 'b1ee…'`):
+
+```
+Seq Scan on cards  (cost=0.00..1.04 rows=1 width=129) (actual time=0.006..0.007 rows=1 loops=1)
+  Filter: (column_id = 'b1ee…'::uuid)
+  Rows Removed by Filter: 2
+Planning Time: 0.530 ms
+Execution Time: 0.047 ms
+```
+
+- `actual time` is in milliseconds; `rows` is what was really returned (compare it with the estimate).
+- **`Rows Removed by Filter: 2`**: Postgres read 3 rows to return 1. On a big table, a large number here is the sign of a missing index.
+- `Seq Scan` + `Filter` on a big table means no index helped: look for a missing index.
+- It really runs the query, so wrap writes in `BEGIN; … ROLLBACK;`.
+
+### The missing `cards.column_id` index
+
+`cards.column_id` is a foreign key, and Postgres **doesn't index foreign keys automatically**. So every "cards in this column" query is a `Seq Scan`: O(n) in every card in the database.
+
+This step adds it in a migration:
+
+```sql
+CREATE INDEX cards_column_id_idx ON cards (column_id);
+```
+
+- `ListColumns` also reads every card with no `WHERE` at all (issue #9). The fix joins to `columns` and filters by board, which this index then makes fast.
+- On a tiny local database, `EXPLAIN` may still show `Seq Scan`: with 3 rows, reading them all is cheaper. Plans only change with realistic amounts of data.

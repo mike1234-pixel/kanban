@@ -138,6 +138,8 @@ Work through the roadmap in order, one step at a time:
 
 Working on: step 6 (database tooling + migrations). Steps 1–5 are complete.
 
+- Step 6: concept entries and quiz questions (99–118) are written. Next: revise, quiz, then implement.
+
 - Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates).
 - Done: password hashing with bcrypt. `POST /users` requires a password (8–72 characters) and stores only its hash in `users.password_hash`; tested live.
 - Done: sessions + cookies. `POST /login` sets an `HttpOnly`, `Secure`, `SameSite=Lax` `session` cookie; `sessions` stores only the token's SHA-256 (`hashToken` in `handlers/auth.go`). Nothing reads the cookie yet.

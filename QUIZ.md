@@ -1499,3 +1499,291 @@ Example: a handler sends jobs to a worker. With `make(chan string)`, each send *
 
 Buffered channels are how step 9's job queue lets requests return quickly.
 </details>
+
+## 6. Database Tooling
+
+### What `database/sql` boilerplate costs
+
+**99.** Adding `cards.version` meant editing three queries by hand. What two lists must match in each?
+
+- [ ] The `WHERE` clause and the `ORDER BY`
+- [x] The `SELECT` column list and the `Scan` pointers
+- [ ] The struct's `json` tags and its `validate` tags
+- [ ] The `Store` interface and the fake store
+
+<details><summary>Answer</summary>
+
+Example: `SELECT … "order", version` and `Scan(… &c.Order, &c.Version)`. They must match **in number and in order**. Swap `version` and `"order"` in one of them and each value lands in the other's field.
+</details>
+
+**100.** When does a typo in a `database/sql` query string get caught?
+
+- [ ] When `go build` runs
+- [ ] When `go vet` runs
+- [x] Only when the query actually runs
+- [ ] When the store is created at startup
+
+<details><summary>Answer</summary>
+
+To Go, the SQL is just a string, so **the compiler can't check it**. `SELECT ca.verison …` compiles fine and fails with `column ca.verison does not exist` the first time that request is made.
+
+That's the main problem sqlc solves.
+</details>
+
+### sqlx
+
+**101.** What does sqlx do that `database/sql` doesn't?
+
+- [ ] Writes the SQL for you from Go code
+- [ ] Checks your SQL against the schema before the app runs
+- [x] Fills structs from rows by column name, using `db` tags
+- [ ] Runs migrations on startup
+
+<details><summary>Answer</summary>
+
+Example: `db.SelectContext(ctx, &cards, "SELECT id, column_id FROM cards …")` **fills each `Card` by matching column names** to `db:"id"` and `db:"column_id"`. No `rows.Next()` loop, no `Scan` list, and column order no longer matters.
+
+You still write all the SQL.
+</details>
+
+**102.** With sqlx, when is a misspelt column name caught?
+
+- [x] When the query runs
+- [ ] When `go build` runs
+- [ ] When `sqlx generate` runs
+- [ ] Never; sqlx ignores unknown columns
+
+<details><summary>Answer</summary>
+
+**At run time, like `database/sql`.** sqlx only maps the results; it never reads your schema, so it can't know a column doesn't exist until Postgres says so.
+</details>
+
+### sqlc
+
+**103.** What does sqlc do?
+
+- [ ] Generates SQL from Go structs
+- [x] Generates typed Go functions from the SQL queries you write
+- [ ] Maps rows into structs at run time
+- [ ] Runs the queries faster by caching them
+
+<details><summary>Answer</summary>
+
+Example: you write `-- name: GetCardByID :one` above a `SELECT`, run `sqlc generate`, and get **`func (q *Queries) GetCardByID(ctx, id string) (Card, error)`**.
+
+The direction is SQL → Go. An ORM goes the other way: Go → SQL.
+</details>
+
+**104.** Why does sqlc catch a wrong column name earlier than sqlx?
+
+- [ ] It runs every query once at startup
+- [ ] It uses a faster database driver
+- [ ] It has a built-in Postgres server
+- [x] It reads your schema, so `sqlc generate` fails before the app runs
+
+<details><summary>Answer</summary>
+
+sqlc knows the tables and columns from your schema files. `SELECT verison FROM cards` makes **`sqlc generate` fail**, so the mistake never reaches a running app.
+</details>
+
+**105.** In a sqlc query file, what do `:one`, `:many` and `:exec` say?
+
+- [ ] How many times the query may run
+- [x] Whether the function returns one row, a slice, or nothing
+- [ ] How many parameters the query takes
+- [ ] Which database connection to use
+
+<details><summary>Answer</summary>
+
+Examples:
+
+- `GetCardByID :one` returns **`(Card, error)`**.
+- `GetCards :many` returns **`([]Card, error)`**.
+- `DeleteCard :exec` returns **just `error`**.
+</details>
+
+### ORMs
+
+**106.** What's the main difference between an ORM and sqlc?
+
+- [ ] An ORM is faster; sqlc is safer
+- [ ] An ORM only works with Postgres
+- [x] An ORM writes the SQL from Go code; with sqlc you write the SQL
+- [ ] sqlc needs a running database; an ORM doesn't
+
+<details><summary>Answer</summary>
+
+Example: in GORM, `db.Where("column_id = ?", id).Find(&cards)` makes **GORM write the `SELECT`**. With sqlc, you write the `SELECT` yourself and sqlc writes the Go.
+
+The ORM saves typing but hides the SQL.
+</details>
+
+**107.** What is the N+1 query problem?
+
+- [ ] A query that returns one row too many
+- [ ] Running a migration one version ahead
+- [ ] A query with one more placeholder than arguments
+- [x] One query for a list, then one more query for each item in it
+
+<details><summary>Answer</summary>
+
+Example: load a board's 20 columns (**1 query**), then each column's cards (**20 more**): 21 queries where one join would do.
+
+ORMs make it easy because each `column.Cards` looks like a field, while it's actually a hidden query.
+</details>
+
+### Migrations
+
+**108.** What is a migration?
+
+- [x] A numbered SQL file that changes the schema one step
+- [ ] A copy of the database moved to a new server
+- [ ] A Go function that converts old rows to new structs
+- [ ] A backup taken before each deploy
+
+<details><summary>Answer</summary>
+
+Example: `00007_add_card_version.sql` with `ALTER TABLE cards ADD COLUMN version …`. The tool runs **every migration the database hasn't had yet, in number order**, and records which ones ran.
+
+So every database gets the same changes, in the same order.
+</details>
+
+**109.** Why should you never edit a migration that has already run?
+
+- [ ] The file becomes read-only after it runs
+- [ ] Postgres stores a copy and refuses the change
+- [x] Databases that already ran it won't run it again, so they'd drift apart
+- [ ] The migration numbers would change
+
+<details><summary>Answer</summary>
+
+Example: you edit `00007` to make `version` start at 0. Your database already ran `00007`, so **it's skipped and keeps the old version**, while a new database gets the edited one. They no longer match.
+
+Write `00008` instead.
+</details>
+
+**110.** What is schema drift? Give the example from this project.
+
+- [ ] A schema slowly getting slower over time
+- [x] Databases that should match don't, e.g. one missing the README's `ALTER`s
+- [ ] Columns changing type when Postgres is upgraded
+- [ ] Rows moving between tables
+
+<details><summary>Answer</summary>
+
+Example: the README has "if your table was created before…" `ALTER`s for `card_movements` and `cards.version`. **A database where nobody ran them** fails at run time with `column "version" does not exist`.
+
+Migrations fix this: `goose up` applies whatever that database is missing.
+</details>
+
+### Big O
+
+**111.** What is the Big O of a full table scan, and of an index lookup?
+
+- [ ] Both are O(n)
+- [ ] Scan O(log n); index O(1)
+- [ ] Scan O(1); index O(n)
+- [x] Scan O(n); index O(log n)
+
+<details><summary>Answer</summary>
+
+Example: with 1,000,000 cards, a `Seq Scan` checks **all 1,000,000** (O(n)). An index lookup checks about **20 entries** (O(log n)).
+
+Going from 1,000 rows to 1,000,000 makes the scan 1,000 times slower, but adds only about 10 steps to the index lookup.
+</details>
+
+**112.** What's the Big O of `colMap[c.ID]` compared with looping over a slice to find the column?
+
+- [x] Map O(1); slice loop O(n)
+- [ ] Both O(1)
+- [ ] Map O(log n); slice loop O(1)
+- [ ] Both O(n)
+
+<details><summary>Answer</summary>
+
+A map **jumps straight to the key**, however many columns there are. A loop may check every column before finding the right one.
+
+That's why `ListColumns` builds `colMap` once, instead of looping over the columns for every card.
+</details>
+
+### B-tree indexes
+
+**113.** What is a B-tree, and why is a lookup O(log n)?
+
+- [ ] An unsorted list of rows, checked from the start
+- [ ] A hash table, so one step per lookup
+- [x] A sorted tree; each level narrows the search, so few levels are needed
+- [ ] A copy of the table with fewer columns
+
+<details><summary>Answer</summary>
+
+Example: to find 650 in `[400 | 800]`, go to the middle child (650 is between them), then find 650 there. **Each level cuts the search down**, and with hundreds of keys per node, millions of rows are only 3–4 levels deep.
+</details>
+
+**114.** Because a B-tree is sorted, what else can it speed up besides `WHERE x = $1`?
+
+- [ ] `INSERT`s
+- [x] `ORDER BY`, `<` and `>`
+- [ ] `COUNT(*)` of the whole table
+- [ ] Foreign key checks only
+
+<details><summary>Answer</summary>
+
+Example: `WHERE created_at > '2026-11-01' ORDER BY created_at` can **find the first match and read forward** through the sorted index, instead of reading and sorting every row.
+</details>
+
+### `EXPLAIN ANALYZE`
+
+**115.** What does `EXPLAIN ANALYZE` add to `EXPLAIN`?
+
+- [ ] A suggested index
+- [ ] The SQL rewritten to be faster
+- [x] It runs the query and shows the real times and row counts
+- [ ] The plan for every query in the session
+
+<details><summary>Answer</summary>
+
+`EXPLAIN` only shows the plan and **estimates**. `EXPLAIN ANALYZE` runs the query and adds **`actual time`**, the real `rows`, and `Execution Time`.
+
+Because it really runs it, wrap a `DELETE` or `UPDATE` in `BEGIN; … ROLLBACK;`.
+</details>
+
+**116.** A plan shows `Seq Scan` with `Rows Removed by Filter: 999999`. What does that tell you?
+
+- [ ] The query deleted 999,999 rows
+- [x] Postgres read a million rows to return one: probably a missing index
+- [ ] The index is being used correctly
+- [ ] The table needs a `VACUUM`
+
+<details><summary>Answer</summary>
+
+**Postgres checked every row and threw almost all of them away.** An index on the filtered column would jump straight to the matching row.
+
+Our real plan says `Rows Removed by Filter: 2`, which is fine with 3 cards.
+</details>
+
+### The missing `cards.column_id` index
+
+**117.** Why doesn't `cards.column_id` have an index, when `cards.id` does?
+
+- [ ] Postgres can't index UUIDs that aren't primary keys
+- [ ] It was dropped by `ON DELETE CASCADE`
+- [ ] Indexes only work on columns called `id`
+- [x] Postgres indexes primary keys automatically, but not foreign keys
+
+<details><summary>Answer</summary>
+
+`PRIMARY KEY` and `UNIQUE` **always get an index** (`cards_pkey`). A foreign key like `column_id REFERENCES columns(id)` **doesn't**, so you add one yourself: `CREATE INDEX cards_column_id_idx ON cards (column_id)`.
+</details>
+
+**118.** You add the index, but `EXPLAIN` on your local database still shows `Seq Scan`. Why?
+
+- [x] With only 3 cards, reading them all is cheaper than using the index
+- [ ] The index needs a server restart to work
+- [ ] `EXPLAIN` doesn't show index scans
+- [ ] Indexes only work inside transactions
+
+<details><summary>Answer</summary>
+
+Postgres **picks whichever plan is cheaper**. Reading 3 rows directly beats a trip through an index. With thousands of cards, the same query switches to an `Index Scan`.
+</details>
