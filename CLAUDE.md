@@ -112,6 +112,7 @@ Work through the roadmap in order, one step at a time:
 - Go syntax goes in `LEARNING_GO.md`, and SQL in `LEARNING_SQL.md` (see below).
 - It's a quick reference, not a tutorial: each entry is at most 300 words (aim much shorter), mostly a one-line definition plus a few key bullet points.
 - If the code changes in a way that makes an entry wrong, update the entry.
+- Keep the Contents list at the top in step with the headings: add a link for every new `##` or `###`.
 
 ## Go and SQL references
 

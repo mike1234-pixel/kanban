@@ -2,6 +2,53 @@
 
 Quick reference for the roadmap concepts I've learned.
 
+## Contents
+
+- [1. CRUD](#1-crud)
+- [2. HTTP Fundamentals](#2-http-fundamentals)
+  - [Status codes](#status-codes)
+  - [JSON encode/decode](#json-encodedecode)
+  - [Validation](#validation)
+  - [Path/query params](#pathquery-params)
+  - [Consistent errors](#consistent-errors)
+  - [Content-Type](#content-type)
+  - [Request lifecycle](#request-lifecycle)
+  - [`context.Context`](#contextcontext)
+- [3. Authentication / Authorization](#3-authentication--authorization)
+  - [Password hashing](#password-hashing)
+  - [Sessions and cookies](#sessions-and-cookies)
+  - [Sessions vs JWTs](#sessions-vs-jwts)
+  - [User enumeration](#user-enumeration)
+  - [Database constraints](#database-constraints)
+  - [Auth middleware](#auth-middleware)
+  - [Logout](#logout)
+  - [Ownership checks (403 vs 404)](#ownership-checks-403-vs-404)
+- [4. Transactions](#4-transactions)
+  - [What a transaction is (ACID)](#what-a-transaction-is-acid)
+  - [`BeginTx` / `Commit` / `Rollback`](#begintx--commit--rollback)
+  - [`defer tx.Rollback()`](#defer-txrollback)
+  - [Every query on `tx`, not `db`](#every-query-on-tx-not-db)
+  - [`MoveCard` (`POST /cards/{id}/move`)](#movecard-post-cardsidmove)
+  - [Mapping transaction failures to API errors](#mapping-transaction-failures-to-api-errors)
+- [5. Concurrency](#5-concurrency)
+  - [Race conditions](#race-conditions)
+  - [`SELECT ... FOR UPDATE`](#select--for-update)
+  - [Isolation levels](#isolation-levels)
+  - [Optimistic vs pessimistic concurrency](#optimistic-vs-pessimistic-concurrency)
+  - [Goroutines](#goroutines)
+  - [Mutexes](#mutexes)
+  - [Channels](#channels)
+- [6. Database Tooling](#6-database-tooling)
+  - [What `database/sql` boilerplate costs](#what-databasesql-boilerplate-costs)
+  - [sqlx](#sqlx)
+  - [sqlc](#sqlc)
+  - [ORMs](#orms)
+  - [Migrations](#migrations)
+  - [Big O](#big-o)
+  - [B-tree indexes](#b-tree-indexes)
+  - [`EXPLAIN ANALYZE`](#explain-analyze)
+  - [The missing `cards.column_id` index](#the-missing-cardscolumn_id-index)
+
 ## 1. CRUD
 
 **Create, Read, Update, Delete**: the four operations on a stored resource. Each maps to an HTTP method; the method says _what to do_, the path says _to what_.
