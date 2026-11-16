@@ -14,7 +14,7 @@ Work through these in order. Don't add several at once.
 10. **Caching / Redis**
 11. **Observability:** structured logging with `log/slog`, request IDs, latency and query timing, error tracking, metrics
 12. **Testing**
-13. **Docker + deployment**
+13. **Docker + deployment:** build the API into a Docker image and deploy it to a managed host (e.g. Fly.io or Render) with managed Postgres; environment variables and secrets (no `DB_PASSWORD` in git); a domain and HTTPS (fixes the `Secure` cookie on Safari); running migrations on deploy; reading the server's logs. Plus a **cloud and infrastructure overview** (awareness, not expertise; nothing built): IaaS vs PaaS vs serverless; Kubernetes (what pods, deployments and services are, and when a team needs it); Terraform and infrastructure as code; VPCs and networking basics; IAM (who can access what); CI/CD pipelines.
 14. **Production architecture:** system design for scaling: load balancers, running several API servers (horizontal scaling, and why sessions in Postgres make that easy), database read replicas, and rate limiting. Also service-to-service communication with gRPC (HTTP/2, Protocol Buffers, `.proto` contracts) vs REST. Exercise: move the notification worker (step 9) into its own service and call it over gRPC.
 
 ## Schedule
