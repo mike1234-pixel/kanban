@@ -740,6 +740,38 @@ Postgres indexes are B-trees by default: a **sorted tree** where each node holds
 
 To find 650: start at the top (650 is between 400 and 800), go to the middle node, find 650. Each level cuts the search down, so a lookup is O(log n). With hundreds of keys per node, even millions of rows are only 3–4 levels deep.
 
+**Halving** splits the rows into 2 at each step, so 1,000,000 rows takes about 20 steps.
+
+**A B-tree node** splits them into hundreds at each step. With 100 keys per node:
+
+- Level 1 narrows the search to 1 of 100 groups.
+- Level 2 narrows it to 1 of 10,000.
+- Level 3 narrows it to 1 of 1,000,000.
+
+Postgres reads each node from disk in one go, and the disk reads are the slow part. So the 20 halvings collapse into 3–4 disk reads.
+
+Picture 1,000,000 rows with IDs from 1 to 1,000,000, and say you're looking for **ID 523,417**.
+
+**Level 1 (root node):** this node has 100 entries, and each one covers 10,000 IDs:
+
+```
+1–10,000 | 10,001–20,000 | ... | 520,001–530,000 | ... | 990,001–1,000,000
+```
+
+523,417 falls in **520,001–530,000**, so Postgres follows that entry to the next node down. The other 99 groups get skipped, which leaves 10,000 IDs to search.
+
+**Level 2:** this node splits those 10,000 IDs into 100 entries of 100 IDs each:
+
+```
+520,001–520,100 | ... | 523,401–523,500 | ... | 529,901–530,000
+```
+
+523,417 falls in **523,401–523,500**, so Postgres follows that entry. That leaves 100 IDs.
+
+**Level 3 (leaf node):** this node holds those 100 IDs one by one. Postgres finds 523,417 there, along with a pointer to the row in the table.
+
+That's three nodes read to find one row out of a million. Each level divides the rows by 100, because a node has 100 entries.
+
 - Sorted, so a B-tree also helps `ORDER BY`, `<` and `>`, not just `=`.
 - Every write must also update the tree, which is the cost of an index (see `LEARNING_SQL.md`).
 

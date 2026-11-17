@@ -1760,6 +1760,20 @@ Example: to find 650 in `[400 | 800]`, go to the middle child (650 is between th
 Example: `WHERE created_at > '2026-11-01' ORDER BY created_at` can **find the first match and read forward** through the sorted index, instead of reading and sorting every row.
 </details>
 
+**114a.** Halving 1,000,000 rows takes about 20 steps. Why does a B-tree need only 3–4 levels?
+
+- [ ] It keeps the whole table in memory, so it skips steps
+- [x] Each node has hundreds of entries, so each level divides by hundreds
+- [ ] It only indexes the first few thousand rows
+- [ ] It halves twice per level instead of once
+
+<details><summary>Answer</summary>
+
+With 100 entries per node, finding ID 523,417: the root picks `520,001–530,000` (10,000 left), level 2 picks `523,401–523,500` (100 left), the leaf has 523,417. **Each level divides the rows by 100**, not 2.
+
+Each node is one disk read, so that's 3 reads instead of 20.
+</details>
+
 ### `EXPLAIN ANALYZE`
 
 **115.** What does `EXPLAIN ANALYZE` add to `EXPLAIN`?
