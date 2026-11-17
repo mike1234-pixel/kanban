@@ -2,8 +2,8 @@
 
 Work through these in order. Don't add several at once.
 
-1. **CRUD** ✅
-2. **HTTP fundamentals:** status codes, JSON encode/decode, validation, path/query params, consistent errors, Content-Type, request lifecycle, `context.Context` ✅
+1. **CRUD** ✅✅
+2. **HTTP fundamentals:** status codes, JSON encode/decode, validation, path/query params, consistent errors, Content-Type, request lifecycle, `context.Context` ✅✅
 3. **Authentication / authorization:** users, password hashing (bcrypt or Argon2id), sessions + cookies (sessions before JWTs), auth middleware, ownership checks (403 vs 404), database constraints ✅
 4. **Transactions:** a dedicated MoveCard operation that updates the card's column and writes a movement-history row in one transaction (`BeginTx` / `Commit` / `Rollback`) ✅
 5. **Concurrency:** race conditions (two users moving the same card), `SELECT ... FOR UPDATE`, isolation levels, optimistic vs pessimistic concurrency, goroutines, mutexes, channels ✅
@@ -21,19 +21,19 @@ Work through these in order. Don't add several at once.
 
 Goal: finish by the end of April 2027, about two weeks per step. Step sizes vary, so dates will shift; April is buffer.
 
-| Dates | Step |
-| --- | --- |
-| 21 Sep – 26 Oct 2026 | 1–3 ✅ |
-| 27 Oct – 1 Nov | Revision: step 3, SQL, Go weak spots ✅ |
-| 2 – 15 Nov | 4. Transactions ✅ |
-| 16 – 29 Nov | 5. Concurrency ✅ |
-| 30 Nov – 13 Dec | 6. Database tooling + migrations |
-| 14 Dec – 3 Jan 2027 | 7. Collaboration (3 weeks, includes holidays) |
-| 4 – 17 Jan | 8. WebSockets |
-| 18 – 31 Jan | 9. Background workers |
-| 1 – 14 Feb | 10. Caching / Redis |
-| 15 – 28 Feb | 11. Observability |
-| 1 – 14 Mar | 12. Testing |
-| 15 – 28 Mar | 13. Docker + deployment |
-| 29 Mar – 11 Apr | 14. Production architecture |
-| 12 – 30 Apr | Buffer and full revision |
+| Dates                | Step                                          |
+| -------------------- | --------------------------------------------- |
+| 21 Sep – 26 Oct 2026 | 1–3 ✅                                        |
+| 27 Oct – 1 Nov       | Revision: step 3, SQL, Go weak spots ✅       |
+| 2 – 15 Nov           | 4. Transactions ✅                            |
+| 16 – 29 Nov          | 5. Concurrency ✅                             |
+| 30 Nov – 13 Dec      | 6. Database tooling + migrations              |
+| 14 Dec – 3 Jan 2027  | 7. Collaboration (3 weeks, includes holidays) |
+| 4 – 17 Jan           | 8. WebSockets                                 |
+| 18 – 31 Jan          | 9. Background workers                         |
+| 1 – 14 Feb           | 10. Caching / Redis                           |
+| 15 – 28 Feb          | 11. Observability                             |
+| 1 – 14 Mar           | 12. Testing                                   |
+| 15 – 28 Mar          | 13. Docker + deployment                       |
+| 29 Mar – 11 Apr      | 14. Production architecture                   |
+| 12 – 30 Apr          | Buffer and full revision                      |
