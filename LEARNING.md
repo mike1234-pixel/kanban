@@ -109,6 +109,11 @@ Decoding proves the JSON is readable; validation proves it makes sense.
 ### Path/query params
 
 - **URL = Uniform Resource Locator:** the address of a resource, saying where it is and how to reach it. In `http://localhost:8080/boards/123?page=2`: `http` is the scheme, `localhost:8080` the host and port, `/boards/123` the path, `?page=2` the query.
+  - **Scheme:** how to talk to the server (`http`, `https`). **Host:** which machine (`localhost`). **Port:** a number that picks which running program gets the request, since one machine runs several. Each program claims its own number: on `localhost`, our Go API listens on `8080`, Postgres on `5432` and the frontend on `5173`.
+    - Our server chooses 8080 in `main.go` (`ListenAndServe(":8080", mux)`).
+    - The OS keeps a list of which program has claimed each port.
+    - When a request arrives for port 8080, the OS hands it to that program.
+    - Only one program can claim a port. Start a second API while the first is running and it fails with `address already in use`.
 - **Path params identify _which_ resource:** `GET /boards/{id}`, read with `r.PathValue("id")`.
 - **Query params filter or shape the result:** `/columns?board_id=…`, read with `r.URL.Query().Get("board_id")`. Returns `""` if missing.
 - The router matches path params and methods (wrong method → 405); it ignores query params, so the handler checks them.

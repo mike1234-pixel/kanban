@@ -99,7 +99,13 @@ Bugs and gaps are tracked in GitHub Issues: https://github.com/mike1234-pixel/ka
 
 ## Roadmap
 
-Work through the roadmap in order, one step at a time:
+Work through the roadmap in order, one step at a time.
+
+Ticks in `ROADMAP.md` show how well I know each step. I add them by hand; don't change them.
+
+- ✅ done
+- ✅✅ secure knowledge (e.g. passed its quiz 100%)
+- ✅✅✅ strong knowledge
 
 @ROADMAP.md
 
