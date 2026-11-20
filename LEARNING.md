@@ -711,11 +711,12 @@ ALTER TABLE cards DROP COLUMN version;
 **When they run:** only when something runs the tool, so nothing happens on its own.
 
 - Run by hand, you have to remember to run `goose up` after pulling a new migration. If you forget, the API fails because a column is missing.
-- So the API can **run them itself on startup**: `main.go` calls `goose.Up(db, "migrations")` before starting the server. The database is always up to date when the API runs. This is the plan here.
+- So the API can **run them itself on startup**. Here `NewPostgresStore` (`store/postgres.go`) calls `goose.Up(db, "migrations")` before `main.go` starts the server, so the database is always up to date when the API runs. The store tests connect the same way, so their database is migrated too.
+- The files live in `backend/internal/store/migrations/`. `00001_initial_schema.sql` is the schema from before migrations, written with `CREATE TABLE IF NOT EXISTS` so it also runs on a database that already has the tables.
 - On deploy, they run before the new code starts (step 13).
 - Each run checks goose's table (`goose_db_version`) and runs only the files not yet recorded there.
 
-**Schema drift** is when databases that should match don't. This project already has it: the README has two "if your table was created before…" `ALTER`s (the `card_movements` foreign keys and `cards.version`). A database where nobody ran them fails at run time, e.g. `column "version" does not exist`.
+**Schema drift** is when databases that should match don't. This project was at risk before migrations: the README had two "if your table was created before…" `ALTER`s (the `card_movements` foreign keys and `cards.version`). A database where nobody ran them fails at run time, e.g. `column "version" does not exist`.
 
 ### Big O
 

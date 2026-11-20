@@ -34,6 +34,36 @@ Example: `import _ "github.com/lib/pq"`. You never write `pq.Something`, but imp
 Without the `_`, Go refuses to compile, because unused imports are an error.
 </details>
 
+### `//go:embed`
+
+**2a.** What does `//go:embed migrations/*.sql` do?
+
+- [ ] Runs the migration files when the program starts
+- [x] Builds the files into the compiled program
+- [ ] Imports the files as Go code
+- [ ] Copies the files next to the binary when it's built
+
+<details><summary>Answer</summary>
+
+The `.sql` files become part of the binary, in the `migrations` variable. **The compiled API carries its own migrations**, so it runs anywhere without the folder beside it.
+
+It doesn't run anything: `goose.Up` does that, reading the files from `migrations`.
+</details>
+
+**2b.** What type does the variable under `//go:embed migrations/*.sql` have, and what is it?
+
+- [ ] `[]string`, the file names
+- [ ] `string`, the files joined together
+- [ ] `*os.File`, an open file on disk
+- [x] `embed.FS`, a read-only folder of files inside the binary
+
+<details><summary>Answer</summary>
+
+`var migrations embed.FS` acts like a folder: goose lists and reads `migrations/00001_initial_schema.sql` from it. **Read-only**, because it's part of the compiled program, not the disk.
+
+(`string` or `[]byte` work too, but only for embedding a single file.)
+</details>
+
 ### Exported vs unexported
 
 **3.** What makes a name visible outside its package?

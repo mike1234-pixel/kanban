@@ -20,6 +20,19 @@ import (
 - `_ "github.com/lib/pq"` imports a package only for its side effects (e.g. registering a driver).
 - `internal/` packages can only be imported from inside this project.
 
+### `//go:embed`
+
+A comment that tells the compiler to build files into the program, so they travel with it.
+
+```go
+//go:embed migrations/*.sql
+var migrations embed.FS
+```
+
+- The comment goes straight above the variable, with no space after `//`.
+- `embed.FS` is a read-only folder of files inside the binary. goose reads the migrations from it (`goose.SetBaseFS(migrations)`).
+- Without it, the API would need the `migrations/` folder next to it at run time, e.g. on a server or in a Docker image (step 13).
+
 ### Exported vs unexported
 
 A capital first letter means visible outside the package; lowercase means private to it.

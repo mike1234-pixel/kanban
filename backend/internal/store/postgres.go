@@ -2,11 +2,13 @@ package store
 
 import (
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/lib/pq" // also registers the PostgreSQL driver with database/sql
+	"github.com/pressly/goose/v3"
 )
 
 // uniqueViolation is the Postgres error code for a unique constraint violation.
@@ -36,18 +38,26 @@ func NewPostgresStore(connStr string) (*PostgresStore, error) {
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping postgres: %w", err)
 	}
-	if _, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS card_movements (
-			id BIGSERIAL PRIMARY KEY,
-			card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
-			from_column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
-			to_column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
-			moved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		)
-	`); err != nil {
+	if err := migrate(db); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("failed to create card movement history table: %w", err)
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
 	return &PostgresStore{db: db}, nil
+}
+
+// migrations holds the .sql files in migrations/, built into the binary, so
+// the API doesn't need the folder next to it when it runs.
+//
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+// migrate runs every migration this database hasn't had yet, in order. goose
+// records the ones it has run in its goose_db_version table.
+func migrate(db *sql.DB) error {
+	goose.SetBaseFS(migrations)
+	if err := goose.SetDialect("postgres"); err != nil {
+		return err
+	}
+	return goose.Up(db, "migrations")
 }

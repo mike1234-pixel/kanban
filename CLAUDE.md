@@ -145,7 +145,8 @@ Ticks in `ROADMAP.md` show how well I know each step. I add them by hand; don't 
 
 Working on: step 6 (database tooling + migrations). Steps 1–5 are complete.
 
-- Step 6: concept entries and quiz questions (99–118) are written. Next: revise, quiz, then implement.
+- Step 6: concept entries and quiz questions (99–118) are written. Implementing in this order: migrations, then the `cards.column_id` index, then sqlc on one store file.
+  - Done: goose migrations. `00001_initial_schema.sql` (all tables, `IF NOT EXISTS`) runs on startup from `NewPostgresStore` via `//go:embed`; the README's hand-run SQL is gone.
 
 - Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates).
 - Done: password hashing with bcrypt. `POST /users` requires a password (8–72 characters) and stores only its hash in `users.password_hash`; tested live.
@@ -178,7 +179,7 @@ Run all backend commands from `backend/`.
 
 Database connection settings come from `backend/.env` (`DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_SSLMODE`).
 
-There are no migrations yet. The API creates `card_movements` on startup; `boards`, `columns`, `cards`, `users` and `sessions` must be created by hand using the SQL in `README.md`. When adding a table, add its SQL to the README too.
+The schema lives in goose migrations (`backend/internal/store/migrations/`), which `NewPostgresStore` runs on startup. Change the schema by adding a new numbered `.sql` file; never edit one that has already run.
 
 ## Project layout
 

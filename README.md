@@ -30,73 +30,9 @@ cd backend
 docker compose up -d
 ```
 
-The API expects the `users`, `boards`, `columns`, `cards` and `sessions` tables to exist (create them in this order: later tables reference earlier ones). The current repository does not include database migrations. For a fresh local database, create the tables with:
+You don't create any tables by hand. When the API starts, it runs the migrations in `backend/internal/store/migrations/` with [goose](https://github.com/pressly/goose), so a fresh database gets every table and an existing one gets only the migrations it hasn't had yet. goose records which have run in its `goose_db_version` table.
 
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  email VARCHAR(254) NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE boards (
-  id UUID PRIMARY KEY,
-  title VARCHAR(100) NOT NULL,
-  owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX boards_owner_id_idx ON boards (owner_id);
-
-CREATE TABLE columns (
-  id UUID PRIMARY KEY,
-  board_id UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
-  title VARCHAR(100) NOT NULL,
-  position INTEGER NOT NULL CHECK (position >= 0),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE cards (
-  id UUID PRIMARY KEY,
-  column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
-  title VARCHAR(150) NOT NULL,
-  description TEXT NOT NULL DEFAULT '',
-  "order" INTEGER NOT NULL CHECK ("order" >= 0),
-  version INTEGER NOT NULL DEFAULT 1,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE sessions (
-  token_hash TEXT PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
-
-The API creates the `card_movements` table automatically when it connects.
-
-If your `card_movements` table was created before it had foreign keys, add them once by hand. The `DELETE` first removes history rows whose card or column no longer exists, because Postgres won't add a foreign key while rows break it:
-
-```sql
-DELETE FROM card_movements m
-WHERE NOT EXISTS (SELECT 1 FROM cards c WHERE c.id = m.card_id)
-   OR NOT EXISTS (SELECT 1 FROM columns col WHERE col.id = m.from_column_id)
-   OR NOT EXISTS (SELECT 1 FROM columns col WHERE col.id = m.to_column_id);
-
-ALTER TABLE card_movements
-  ADD FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
-  ADD FOREIGN KEY (from_column_id) REFERENCES columns(id) ON DELETE CASCADE,
-  ADD FOREIGN KEY (to_column_id) REFERENCES columns(id) ON DELETE CASCADE;
-```
-
-If your `cards` table was created before it had a `version` column (used to detect two people editing the same card), add it once by hand. Existing cards start at version 1:
-
-```sql
-ALTER TABLE cards ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
-```
+To change the schema, add a new numbered file to that folder (e.g. `00002_add_cards_column_id_index.sql`). Never edit a migration that has already run.
 
 ### 2. Start the API
 
