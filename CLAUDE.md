@@ -147,6 +147,7 @@ Working on: step 6 (database tooling + migrations). Steps 1–5 are complete.
 
 - Step 6: concept entries and quiz questions (99–118) are written. Implementing in this order: migrations, then the `cards.column_id` index, then sqlc on one store file.
   - Done: goose migrations. `00001_initial_schema.sql` (all tables, `IF NOT EXISTS`) runs on startup from `NewPostgresStore` via `//go:embed`; the README's hand-run SQL is gone.
+  - Done: `00002_add_cards_column_id_index.sql`. `EXPLAIN ANALYZE` with 100,000 cards: `Seq Scan` 3.6 ms → `Index Scan` 0.025 ms.
 
 - Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates).
 - Done: password hashing with bcrypt. `POST /users` requires a password (8–72 characters) and stores only its hash in `users.password_hash`; tested live.

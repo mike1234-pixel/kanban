@@ -804,11 +804,19 @@ Execution Time: 0.047 ms
 
 `cards.column_id` is a foreign key, and Postgres **doesn't index foreign keys automatically**. So every "cards in this column" query is a `Seq Scan`: O(n) in every card in the database.
 
-This step adds it in a migration:
+This step adds it in a migration (`00002_add_cards_column_id_index.sql`):
 
 ```sql
 CREATE INDEX cards_column_id_idx ON cards (column_id);
 ```
+
+Real result, with 100,000 extra cards added in a transaction and rolled back:
+
+| | No index | With index |
+| --- | --- | --- |
+| Plan | `Seq Scan` | `Index Scan using cards_column_id_idx` |
+| Rows read to find 1 | 100,003 | 1 |
+| Time | 3.593 ms | 0.025 ms |
 
 - `ListColumns` also reads every card with no `WHERE` at all (issue #9). The fix joins to `columns` and filters by board, which this index then makes fast.
 - On a tiny local database, `EXPLAIN` may still show `Seq Scan`: with 3 rows, reading them all is cheaper. Plans only change with realistic amounts of data.
