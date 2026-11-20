@@ -7,7 +7,7 @@ Work through these in order. Don't add several at once.
 3. **Authentication / authorization:** users, password hashing (bcrypt or Argon2id), sessions + cookies (sessions before JWTs), auth middleware, ownership checks (403 vs 404), database constraints ✅
 4. **Transactions:** a dedicated MoveCard operation that updates the card's column and writes a movement-history row in one transaction (`BeginTx` / `Commit` / `Rollback`) ✅
 5. **Concurrency:** race conditions (two users moving the same card), `SELECT ... FOR UPDATE`, isolation levels, optimistic vs pessimistic concurrency, goroutines, mutexes, channels ✅
-6. **Database tooling:** what `database/sql` boilerplate costs, then the alternatives: sqlx (maps SQL results into structs), sqlc (generates Go code from SQL), ORMs (generate SQL from Go code). Convert one store file to sqlc and compare. Plus **migrations**: numbered SQL files (e.g. with goose or golang-migrate) that build every database the same way, replacing the hand-run SQL in `README.md` and preventing schema drift. Plus **indexes and query cost**: Big O (a full table scan is O(n), an index lookup is O(log n)), why Postgres indexes are B-trees, reading `EXPLAIN ANALYZE`, and adding the missing `cards.column_id` index in a migration.
+6. **Database tooling:** what `database/sql` boilerplate costs, then the alternatives: sqlx (maps SQL results into structs), sqlc (generates Go code from SQL), ORMs (generate SQL from Go code). Convert one store file to sqlc and compare. Plus **migrations**: numbered SQL files (e.g. with goose or golang-migrate) that build every database the same way, replacing the hand-run SQL in `README.md` and preventing schema drift. Plus **indexes and query cost**: Big O (a full table scan is O(n), an index lookup is O(log n)), why Postgres indexes are B-trees, reading `EXPLAIN ANALYZE`, and adding the missing `cards.column_id` index in a migration. ✅
 7. **Collaboration:** workspaces (teams) own boards; users join them through `workspace_members` with a role (`owner`, `editor`, `viewer`). Every user gets a personal workspace. Role-based access control: non-members get `404`, a viewer who tries to edit gets `403`. Invite and remove members. Move `boards.owner_id` to `boards.workspace_id` with a data migration. Two different people can now move the same card, so step 5's race becomes real.
 8. **WebSockets:** real-time board updates, hub/broadcast pattern, connection lifecycle, heartbeats, disconnect cleanup, backpressure
 9. **Background workers:** the queue data structure (first in, first out), then an in-process job queue (`chan Job` + worker goroutines) for audit events and notifications
@@ -27,7 +27,7 @@ Goal: finish by the end of April 2027, about two weeks per step. Step sizes vary
 | 27 Oct – 1 Nov       | Revision: step 3, SQL, Go weak spots ✅       |
 | 2 – 15 Nov           | 4. Transactions ✅                            |
 | 16 – 29 Nov          | 5. Concurrency ✅                             |
-| 30 Nov – 13 Dec      | 6. Database tooling + migrations              |
+| 30 Nov – 13 Dec      | 6. Database tooling + migrations ✅           |
 | 14 Dec – 3 Jan 2027  | 7. Collaboration (3 weeks, includes holidays) |
 | 4 – 17 Jan           | 8. WebSockets                                 |
 | 18 – 31 Jan          | 9. Background workers                         |

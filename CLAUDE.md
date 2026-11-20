@@ -143,12 +143,15 @@ Ticks in `ROADMAP.md` show how well I know each step. I add them by hand; don't 
 
 <!-- Update this as you progress -->
 
-Working on: step 6 (database tooling + migrations). Steps 1–5 are complete.
+Working on: step 7 (collaboration). Next: write its `LEARNING.md` entries and `QUIZ.md` questions. Steps 1–6 are complete.
 
-- Step 6: concept entries and quiz questions (99–118) are written. Implementing in this order: migrations, then the `cards.column_id` index, then sqlc on one store file.
+- Step 7 changes the schema (`workspaces`, `workspace_members`, moving `boards.owner_id` to `workspace_id`), so every change is a new numbered migration, never an edit to `00001` or `00002`.
+
+- Done (step 6): concepts in `LEARNING.md`, quiz questions 99–118 (plus 110a, 110b, 114a).
   - Done: goose migrations. `00001_initial_schema.sql` (all tables, `IF NOT EXISTS`) runs on startup from `NewPostgresStore` via `//go:embed`; the README's hand-run SQL is gone.
   - Done: `00002_add_cards_column_id_index.sql`. `EXPLAIN ANALYZE` with 100,000 cards: `Seq Scan` 3.6 ms → `Index Scan` 0.025 ms.
   - Done: sqlc. `sqlc.yaml` reads the schema from the migrations; `store/queries/sessions.sql` → generated `sessions.sql.go`; `sessions.go` wraps it. sqlc is pinned as a `tool` in `go.mod`. `TestSessionLifecycle` covers it.
+  - Done: #9 fixed. `GetColumnsWithCards` fetches only the board's cards (join to `columns`, `WHERE col.board_id = $1`); `TestGetColumnsWithCardsOneBoard`.
 
 - Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates).
 - Done: password hashing with bcrypt. `POST /users` requires a password (8–72 characters) and stores only its hash in `users.password_hash`; tested live.
