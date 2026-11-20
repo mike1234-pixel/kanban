@@ -61,9 +61,15 @@ func (s *PostgresStore) GetColumnsWithCards(ctx context.Context, boardID, ownerI
 		return []models.Column{}, nil
 	}
 
-	// 2. Fetch cards
-	cardQuery := `SELECT id, column_id, title, description, "order", version FROM cards ORDER BY "order" ASC`
-	cardRows, err := s.db.QueryContext(ctx, cardQuery)
+	// 2. Fetch only this board's cards (not every card in the database, #9).
+	// Step 1 already checked the board is ownerID's.
+	cardQuery := `
+		SELECT ca.id, ca.column_id, ca.title, ca.description, ca."order", ca.version
+		FROM cards ca
+		JOIN columns col ON col.id = ca.column_id
+		WHERE col.board_id = $1
+		ORDER BY ca."order" ASC`
+	cardRows, err := s.db.QueryContext(ctx, cardQuery, boardID)
 	if err != nil {
 		return nil, err
 	}
