@@ -1,6 +1,29 @@
 # Learning SQL
 
-Quick reference for the SQL and Postgres used in this project. Examples come from the codebase and `README.md`. Backend concepts live in `LEARNING.md`; Go syntax in `LEARNING_GO.md`.
+Quick reference for the SQL and Postgres used in this project. Examples come from the codebase and its migrations (`backend/internal/store/migrations/`). Backend concepts live in `LEARNING.md`; Go syntax in `LEARNING_GO.md`.
+
+## Contents
+
+- [Tables](#tables)
+  - [`CREATE TABLE`](#create-table)
+  - [Column types](#column-types)
+  - [Constraints](#constraints)
+  - [Quoting names](#quoting-names)
+- [Queries](#queries)
+  - [`SELECT`](#select)
+  - [`INSERT`, `UPDATE`, `DELETE`](#insert-update-delete)
+  - [Placeholders: `$1`, `$2`](#placeholders-1-2)
+  - [`JOIN`](#join)
+  - [Writes that check another table](#writes-that-check-another-table)
+- [Performance](#performance)
+  - [Indexes](#indexes)
+  - [`EXPLAIN`](#explain)
+- [Go's `database/sql`](#gos-databasesql)
+- [Transactions and locking](#transactions-and-locking)
+  - [`BEGIN`, `COMMIT`, `ROLLBACK`](#begin-commit-rollback)
+  - [`SELECT … FOR UPDATE`](#select--for-update)
+  - [`version = version + 1`](#version--version--1)
+  - [`gen_random_uuid()`](#gen_random_uuid)
 
 ## Tables
 

@@ -2,6 +2,48 @@
 
 Quick reference for the Go syntax used in this project. Examples come from the codebase. Backend concepts live in `LEARNING.md`.
 
+## Contents
+
+- [Basics](#basics)
+  - [Packages and imports](#packages-and-imports)
+  - [`//go:embed`](#goembed)
+  - [Tools in `go.mod`](#tools-in-gomod)
+  - [Exported vs unexported](#exported-vs-unexported)
+  - [Variables: `:=` vs `var`](#variables--vs-var)
+  - [Zero values](#zero-values)
+  - [Constants](#constants)
+  - [Multiple return values](#multiple-return-values)
+  - [`if` with a short statement](#if-with-a-short-statement)
+  - [`for`](#for)
+  - [Type conversion](#type-conversion)
+- [Types](#types)
+  - [Structs](#structs)
+  - [Struct tags](#struct-tags)
+  - [Anonymous structs](#anonymous-structs)
+  - [Embedding](#embedding)
+  - [Pointers](#pointers)
+  - [Arrays](#arrays)
+  - [Slices](#slices)
+  - [Maps](#maps)
+  - [Choosing a data structure](#choosing-a-data-structure)
+  - [`any`](#any)
+  - [Type assertions](#type-assertions)
+- [Functions and methods](#functions-and-methods)
+  - [Parameters that share a type](#parameters-that-share-a-type)
+  - [Methods and receivers](#methods-and-receivers)
+  - [Functions as values](#functions-as-values)
+  - [`defer`](#defer)
+- [Interfaces](#interfaces)
+- [Errors](#errors)
+  - [Errors are values](#errors-are-values)
+  - [Sentinel errors](#sentinel-errors)
+  - [Wrapping](#wrapping)
+- [Testing](#testing)
+- [Concurrency](#concurrency)
+  - [`go func() { … }()`](#go-func---)
+  - [`sync.WaitGroup`](#syncwaitgroup)
+  - [`sync.Mutex`](#syncmutex)
+
 ## Basics
 
 ### Packages and imports
