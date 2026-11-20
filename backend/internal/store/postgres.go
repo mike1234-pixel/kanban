@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"kanban/internal/store/queries"
+
 	"github.com/lib/pq" // also registers the PostgreSQL driver with database/sql
 	"github.com/pressly/goose/v3"
 )
@@ -21,6 +23,7 @@ func isUniqueViolation(err error) bool {
 
 type PostgresStore struct {
 	db *sql.DB
+	q  *queries.Queries // sqlc-generated methods (internal/store/queries), so far only sessions
 }
 
 func NewPostgresStore(connStr string) (*PostgresStore, error) {
@@ -43,7 +46,7 @@ func NewPostgresStore(connStr string) (*PostgresStore, error) {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	return &PostgresStore{db: db}, nil
+	return &PostgresStore{db: db, q: queries.New(db)}, nil
 }
 
 // migrations holds the .sql files in migrations/, built into the binary, so

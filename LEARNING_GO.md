@@ -33,6 +33,18 @@ var migrations embed.FS
 - `embed.FS` is a read-only folder of files inside the binary. goose reads the migrations from it (`goose.SetBaseFS(migrations)`).
 - Without it, the API would need the `migrations/` folder next to it at run time, e.g. on a server or in a Docker image (step 13).
 
+### Tools in `go.mod`
+
+A `tool` line pins a command-line program to this project, like a `devDependency` in `package.json`.
+
+```sh
+go get -tool github.com/sqlc-dev/sqlc/cmd/sqlc@latest   # adds: tool github.com/sqlc-dev/sqlc/cmd/sqlc
+go tool sqlc generate                                    # runs that exact version
+```
+
+- Everyone gets the same version, with no global install.
+- It's only for development: the API binary doesn't include it.
+
 ### Exported vs unexported
 
 A capital first letter means visible outside the package; lowercase means private to it.

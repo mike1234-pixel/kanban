@@ -1583,7 +1583,9 @@ The direction is SQL → Go. An ORM goes the other way: Go → SQL.
 
 <details><summary>Answer</summary>
 
-sqlc knows the tables and columns from your schema files. `SELECT verison FROM cards` makes **`sqlc generate` fail**, so the mistake never reaches a running app.
+sqlc reads the tables and columns from our migrations. Changing `u.name` to `u.nme` in `sessions.sql` gave **`column "nme" does not exist`** before the app ran.
+
+It isn't complete: a typo in the `WHERE` (`s.expires`) slipped through, so tests still matter.
 </details>
 
 **105.** In a sqlc query file, what do `:one`, `:many` and `:exec` say?

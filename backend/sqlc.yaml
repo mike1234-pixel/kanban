@@ -1,0 +1,16 @@
+# sqlc reads the schema from the migrations and the queries from
+# internal/store/queries/*.sql, then generates Go in the same folder.
+# Run from backend/: go tool sqlc generate
+version: "2"
+sql:
+  - engine: postgresql
+    schema: internal/store/migrations
+    queries: internal/store/queries
+    gen:
+      go:
+        package: queries
+        out: internal/store/queries
+        overrides:
+          # The models use string IDs, not uuid.UUID.
+          - db_type: uuid
+            go_type: string

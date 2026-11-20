@@ -42,7 +42,7 @@ Also:
 
 - Standard library first: `net/http`, `database/sql`, `encoding/json`, `context`, `log/slog`.
 
-- No ORM and no web framework for now. The verbosity of `database/sql` is intentional; it shows what the database interaction really looks like. Tools like sqlc or pgx come later (roadmap step 6), once I understand what they abstract.
+- No ORM and no web framework for now. The verbosity of `database/sql` is intentional; it shows what the database interaction really looks like. Step 6 converted only `store/sessions.go` to sqlc, for comparison; every other store file stays hand-written `database/sql`.
 
 - Postgres is the database, accessed through the `lib/pq` driver.
 
@@ -148,6 +148,7 @@ Working on: step 6 (database tooling + migrations). Steps 1–5 are complete.
 - Step 6: concept entries and quiz questions (99–118) are written. Implementing in this order: migrations, then the `cards.column_id` index, then sqlc on one store file.
   - Done: goose migrations. `00001_initial_schema.sql` (all tables, `IF NOT EXISTS`) runs on startup from `NewPostgresStore` via `//go:embed`; the README's hand-run SQL is gone.
   - Done: `00002_add_cards_column_id_index.sql`. `EXPLAIN ANALYZE` with 100,000 cards: `Seq Scan` 3.6 ms → `Index Scan` 0.025 ms.
+  - Done: sqlc. `sqlc.yaml` reads the schema from the migrations; `store/queries/sessions.sql` → generated `sessions.sql.go`; `sessions.go` wraps it. sqlc is pinned as a `tool` in `go.mod`. `TestSessionLifecycle` covers it.
 
 - Done: user CRUD endpoints (`/users`) with unique emails (409 on duplicates).
 - Done: password hashing with bcrypt. `POST /users` requires a password (8–72 characters) and stores only its hash in `users.password_hash`; tested live.
@@ -175,6 +176,7 @@ Run all backend commands from `backend/`.
 | Test                        | `go test ./...`            |
 | Format                      | `gofmt -w .`               |
 | Vet                         | `go vet ./...`             |
+| Regenerate sqlc code        | `go tool sqlc generate`    |
 | Frontend (from `frontend/`) | `pnpm install && pnpm dev` |
 | Quiz app (from `quiz/`)     | `pnpm install && pnpm dev` (port 5174) |
 

@@ -651,20 +651,26 @@ err := db.SelectContext(ctx, &cards, `SELECT id, column_id FROM cards WHERE colu
 
 A tool that **generates Go code from SQL**. You write each query in a `.sql` file with a name, and `sqlc generate` writes a typed Go function for it.
 
+In this codebase (`store/queries/sessions.sql`):
+
 ```sql
--- name: GetCardByID :one
-SELECT id, column_id, title, description, "order", version FROM cards WHERE id = $1;
+-- name: GetSessionUser :one
+SELECT u.id, u.name, u.email, u.created_at
+FROM sessions s JOIN users u ON u.id = s.user_id
+WHERE s.token_hash = $1 AND s.expires_at > NOW();
 ```
 
-generates:
+`go tool sqlc generate` (from `backend/`) writes `sessions.sql.go`:
 
 ```go
-func (q *Queries) GetCardByID(ctx context.Context, id string) (Card, error)
+func (q *Queries) GetSessionUser(ctx context.Context, tokenHash string) (GetSessionUserRow, error)
 ```
 
-- sqlc reads your schema, so **a wrong column name fails at `sqlc generate`, before the app runs**.
+- sqlc reads the schema **from our migrations**, so a wrong column name in the `SELECT` fails at generate time, before the app runs. It can miss some, e.g. a typo in the `WHERE`, so tests still matter.
 - `:one` returns one row, `:many` a slice, `:exec` nothing.
-- You still write and see every query; sqlc only writes the Go around it.
+- You still write and see every query; sqlc only writes the `Scan` code around it.
+- `sessions.go` keeps the `Store` methods and converts each generated row into a `models.User`. Handlers didn't change.
+- Cost: a generate step to remember after changing SQL or the schema, and a large tool dependency. Only `sessions.go` uses it; the other store files stay hand-written `database/sql`.
 - 🧩 **Pattern: code generation.** The generated file is never edited by hand; you change the SQL and generate again.
 
 ### ORMs

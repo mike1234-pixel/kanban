@@ -64,6 +64,32 @@ It doesn't run anything: `goose.Up` does that, reading the files from `migration
 (`string` or `[]byte` work too, but only for embedding a single file.)
 </details>
 
+### Tools in `go.mod`
+
+**2c.** What does a `tool` line in `go.mod` do?
+
+- [ ] Builds the program into the API binary
+- [x] Pins a command-line program's version to this project
+- [ ] Installs the program globally on your machine
+- [ ] Marks a package as only used in tests
+
+<details><summary>Answer</summary>
+
+`tool github.com/sqlc-dev/sqlc/cmd/sqlc` pins sqlc v1.31.1, like a `devDependency` in `package.json`. **Everyone on the project runs the same version**, and nothing is installed globally.
+</details>
+
+**2d.** How do you run a tool pinned in `go.mod`?
+
+- [ ] `sqlc generate`
+- [ ] `go run sqlc generate`
+- [x] `go tool sqlc generate`
+- [ ] `go get sqlc generate`
+
+<details><summary>Answer</summary>
+
+`go tool` runs the version in `go.mod`. Plain `sqlc generate` would need a **global install**, and that version could differ from the project's (the machine here doesn't have one: `sqlc not found`).
+</details>
+
 ### Exported vs unexported
 
 **3.** What makes a name visible outside its package?
